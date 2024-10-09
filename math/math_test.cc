@@ -91,17 +91,86 @@ TEST(VECTOR, SquareOfLength3df) {
   EXPECT_NEAR(25.0, vector.square_of_length(), 0.00001);
 }
 
+TEST(VECTOR, SquareOfLengthCustom1) {
+    Vector3df vector = {0.0, 0.0, 0.0};
+
+    EXPECT_NEAR(0.0, vector.square_of_length(), 0.00001);
+}
+
+TEST(VECTOR, SquareOfLengthNegativeValues) {
+    Vector2df vector = {-1.0f, -1.0f};
+    EXPECT_NEAR(2.0f, vector.square_of_length(), 0.00001f);
+}
+
+TEST(VECTOR, SquareOfLengthPositiveAndNegative) {
+    Vector2df vector = {3.0f, -4.0f};
+    EXPECT_NEAR(25.0f, vector.square_of_length(), 0.00001f);
+}
+
+TEST(VECTOR, SquareOfLengthCustom2) {
+    Vector3df vector = {-100.0, -1000.0, 10.0};
+
+    EXPECT_NEAR(1010100.0, vector.square_of_length(), 0.00001);
+}
+
+TEST(VECTOR, SquareOfLengthLargeValues) {
+    Vector2df vector = {1e6f, 1e6f};
+    EXPECT_NEAR(2e12f, vector.square_of_length(), 0.00001f);
+}
+
+TEST(VECTOR, SquareOfLengthVerySmallValues) {
+    Vector2df vector = {1e-6f, 1e-6f};
+    EXPECT_NEAR(2e-12f, vector.square_of_length(), 0.00001f);
+}
+
+TEST(VECTOR, SquareOfLengthCustom3) {
+    Vector4df vector = {1, 2, 3, 4};
+
+    EXPECT_NEAR(30.0, vector.square_of_length(), 0.00001);
+}
+
 TEST(VECTOR, Length) {
   Vector2df vector = {-3.0, 4.0};
   
   EXPECT_NEAR(5.0, vector.length(), 0.00001);
 }
 
+TEST(VECTOR, LengthZero) {
+    Vector2df vector = {0.0f, 0.0f};
+    EXPECT_NEAR(0.0f, vector.length(), 0.00001f);
+}
+
+TEST(VECTOR, LengthNegativeValues) {
+    Vector2df vector = {-1.0f, -1.0f};
+    EXPECT_NEAR(std::sqrt(2.0f), vector.length(), 0.00001f);
+}
+
+TEST(VECTOR, LengthPositiveAndNegative) {
+    Vector2df vector = {3.0f, -4.0f};
+    EXPECT_NEAR(5.0f, vector.length(), 0.00001f);
+}
+
+TEST(VECTOR, LengthLargeValues) {
+    Vector2df vector = {1e6f, 1e6f};
+    EXPECT_NEAR(std::sqrt(2e12f), vector.length(), 0.00001f);
+}
+
+TEST(VECTOR, LengthVerySmallValues) {
+    Vector2df vector = {1e-6f, 1e-6f};
+    EXPECT_NEAR(std::sqrt(2e-12f), vector.length(), 0.00001f);
+}
+
+TEST(VECTOR, Length4D) {
+    Vector4df vector = {-3.0, 4.0, 1, 1};
+
+    EXPECT_NEAR(5.196152422, vector.length(), 0.00001);
+}
+
 TEST(VECTOR, Length3df) {
-  Vector3df vector = {0.0, -4.0, 3.0};
-  float length = vector.length();
-    
-  EXPECT_NEAR(5.0, length, 0.00001);
+    Vector3df vector = {0.0, -4.0, 3.0};
+    float length = vector.length();
+
+    EXPECT_NEAR(5.0, length, 0.00001);
 }
 
 TEST(VECTOR, Normalize) {
