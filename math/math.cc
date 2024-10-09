@@ -14,19 +14,16 @@ template class Vector<float, 4u>;
 template Vector<float, 2u> operator*(float scalar, Vector<float, 2u> value);
 template Vector<float, 2u> operator+(Vector<float, 2u> value, const Vector<float, 2u> addend);
 template Vector<float, 2u> operator-(Vector<float, 2u> value, const Vector<float, 2u> addend);
-
-//template float operator*(Vector<float, 2u> value, const Vector<float, 2u> addend);
+template float operator*(Vector<float, 2u> value, const Vector<float, 2u> addend);
 
 template Vector<float, 3u> operator*(float scalar, Vector<float, 3u> value);
 template Vector<float, 3u> operator+(Vector<float, 3u> value, const Vector<float, 3u> addend);
 template Vector<float, 3u> operator-(Vector<float, 3u> value, const Vector<float, 3u> addend);
-
-//template float operator*(Vector<float, 3u> value, const Vector<float, 3u> addend);
+template float operator*(Vector<float, 3u> value, const Vector<float, 3u> addend);
 
 template Vector<float, 4u> operator*(float scalar, Vector<float, 4u> value);
 template Vector<float, 4u> operator+(Vector<float, 4u> value, const Vector<float, 4u> addend);
 template Vector<float, 4u> operator-(Vector<float, 4u> value, const Vector<float, 4u> addend);
-
-//template float operator*(Vector<float, 4u> value, const Vector<float, 4u> addend);
+template float operator*(Vector<float, 4u> value, const Vector<float, 4u> addend);
 
 
