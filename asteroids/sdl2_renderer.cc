@@ -34,7 +34,7 @@ void SDL2Renderer::renderSpaceship(Vector2df position, float angle) {
 }
 
 void SDL2Renderer::render(Spaceship * ship) {
-  static SDL_Point flame_points[] { {-16, 4}, {-28, 0}, {-16, -4} };
+  static SDL_Point flame_points[] { {-20, 8}, {-38, 6}, {-20, 4}, {-16, 4}, {-16, -4}, {-20, -4}, {-38, -6}, {-20, -8} };
   std::array<SDL_Point, std::span{flame_points}.size()> points;
 
   if (! ship->is_in_hyperspace()) {
