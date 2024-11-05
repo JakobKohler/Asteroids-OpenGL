@@ -104,7 +104,15 @@ public:
 
 
 // Das "Material" der Objektoberfläche mit ambienten, diffusem und reflektiven Farbanteil.
-class Material{};
+class Material {
+public:
+    Color ambient;
+    Color diffuse;
+    Color reflective;
+
+    Material(const Color& ambient, const Color& diffuse, const Color& reflective)
+            : ambient(ambient), diffuse(diffuse), reflective(reflective) {}
+};
 
 
 
@@ -112,7 +120,24 @@ class Material{};
 // Im Prinzip ein Wrapper-Objekt, das mindestens Material und geometrisches Objekt zusammenfasst.
 // Kugel und Dreieck finden Sie in geometry.h/tcc
 
-class Shape{};
+class Shape {
+private:
+    Material material;
+    Sphere3df geometricObject;
+
+public:
+    Shape(const Material& material, const Sphere3df& shape)
+            : material(material), geometricObject(shape) {}
+
+    Material getMaterial() const {
+        return material;
+    }
+
+    Sphere3df getGeometricObject() const {
+        return geometricObject;
+    }
+};
+
 
 
 // verschiedene Materialdefinition, z.B. Mattes Schwarz, Mattes Rot, Reflektierendes Weiss, ...
@@ -123,7 +148,6 @@ class Shape{};
 // oder die Suche nach einem Sehstrahl für das dem Augenpunkt am nächsten liegenden Objekte,
 // können auch zusammen in eine Datenstruktur für die gesammte zu
 // rendernde "Szene" zusammengefasst werden.
-class Scene{};
 
 // Die Cornelbox aufgebaut aus den Objekten
 // Am besten verwendet man hier einen std::vector< ... > von Objekten.
@@ -131,7 +155,6 @@ class Scene{};
 // Punktförmige "Lichtquellen" können einfach als Vector3df implementiert werden mit weisser Farbe,
 // bei farbigen Lichtquellen müssen die entsprechenden Daten in Objekt zusammengefaßt werden
 // Bei mehreren Lichtquellen können diese in einen std::vector gespeichert werden.
-class LightSource{};
 
 // Sie benötigen eine Implementierung von Lambertian-Shading, z.B. als Funktion
 // Benötigte Werte können als Parameter übergeben werden, oder wenn diese Funktion eine Objektmethode eines
@@ -140,6 +163,16 @@ class LightSource{};
 
 // Für einen Sehstrahl aus allen Objekte, dasjenige finden, das dem Augenpunkt am nächsten liegt.
 // Am besten einen Zeiger auf das Objekt zurückgeben. Wenn dieser nullptr ist, dann gibt es kein sichtbares Objekt.
+
+class Scene{
+private:
+    Vector3df lightSource;
+    std::vector<Shape> objects;
+
+
+public:
+
+};
 
 // Die rekursive raytracing-Methode. Am besten ab einer bestimmten Rekursionstiefe (z.B. als Parameter übergeben) abbrechen.
 
@@ -151,17 +184,13 @@ int main(void) {
   //   Sehstrahl für x,y mit Kamera erzeugen
   //   Farbe mit raytracing-Methode bestimmen
   //   Beim Bildschirm die Farbe für Pixel x,y, setzten
-  int w = 10000;
-  int h = 10000;
-  auto screen = Screen(w, h);
-  for (int i = 0; i < h; ++i)
-  {
-    for (int j = 0; j < w; ++j)
-    {
-      screen.set_pixel(i, j, Color(i%255, j%255, (i*j) % 255));
-    }
-  }
-  screen.renderImage();
-  return 0;
+    auto aspect_ratio = 16.0 / 9.0;
+    int image_width = 400;
+
+    int image_height = int(image_width / aspect_ratio);
+    image_height = (image_height < 1) ? 1 : image_height;
+
+    Screen screen = Screen(image_width, image_height);
+    return 0;
 }
 
