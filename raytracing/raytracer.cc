@@ -5,6 +5,7 @@
 #include <vector>
 #include <algorithm>
 #include <iostream>
+#include <SDL2/SDL.h>
 // Die folgenden Kommentare beschreiben Datenstrukturen und Funktionen
 // Die Datenstrukturen und Funktionen die weiter hinten im Text beschrieben sind,
 // hängen höchstens von den vorhergehenden Datenstrukturen ab, aber nicht umgekehrt.
@@ -27,6 +28,17 @@ public:
 };
 
 class Screen {
+public:
+  [[nodiscard]] int getWidth() const
+  {
+    return width;
+  }
+
+  [[nodiscard]] int getHeight() const
+  {
+    return height;
+  }
+
 private:
   int width;
   int height;
@@ -42,7 +54,7 @@ public:
     pixels[y * width + x] = color;
   }
 
-  Color get_pixel(const int x, const int y) const
+  [[nodiscard]] Color get_pixel(const int x, const int y) const
   {
     if (x < 0 || x >= width || y < 0 || y >= height) {
       throw std::out_of_range("Pixel coordinates are out of bounds");
@@ -50,7 +62,7 @@ public:
     return pixels[y * width + x];
   }
 
-  void renderImage()
+  void renderImage() const
   {
     std::ofstream outFile("out.ppm");
     if (!outFile) {
@@ -74,6 +86,52 @@ public:
 
     outFile.close();
   }
+  void renderSDL2() const {
+    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+      std::cerr << "SDL could not initialize! SDL_Error: " << SDL_GetError() << std::endl;
+      return;
+    }
+
+    SDL_Window* window = SDL_CreateWindow("SDL2 Image Render", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_SHOWN);
+    if (!window) {
+      std::cerr << "Window could not be created! SDL_Error: " << SDL_GetError() << std::endl;
+      SDL_Quit();
+      return;
+    }
+
+    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    if (!renderer) {
+      std::cerr << "Renderer could not be created! SDL_Error: " << SDL_GetError() << std::endl;
+      SDL_DestroyWindow(window);
+      SDL_Quit();
+      return;
+    }
+
+    for (int j = 0; j < height; j++) {
+      for (int i = 0; i < width; i++) {
+        Color currentColor = get_pixel(i, j);
+        SDL_SetRenderDrawColor(renderer, currentColor.r, currentColor.g, currentColor.b, 255);
+
+        SDL_RenderDrawPoint(renderer, i, j);
+      }
+    }
+
+    SDL_RenderPresent(renderer);
+    bool running = true;
+    SDL_Event event;
+    while (running) {
+      while (SDL_PollEvent(&event)) {
+        if (event.type == SDL_QUIT) {
+          running = false;
+        }
+      }
+      SDL_Delay(10);
+    }
+
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+  }
 };
 
 
@@ -83,15 +141,35 @@ public:
 // Für ein Pixel mit Bildkoordinate kann ein Sehstrahl erzeugt werden.
 class Camera {
 private:
-  Vector3df position; // Camera position in 3D space
-
+  Screen screen;
+  float viewport_width = 0;
+  float viewport_height = 2.0;
+  Vector3df camera_center = {0, 0, 10};
+  Vector3df viewport_u = {0,0,0};
+  Vector3df viewport_v = {0,0,0};
+  Vector3df pixel_delta_u = {0,0,0};
+  Vector3df pixel_delta_v = {0,0,0};
+  Vector3df viewport_upper_left = {0, 0, 0};
+  Vector3df pixel00_loc = {0,0,0};
 public:
-  Camera(const Vector3df& pos) : position(pos) {}
-
-  Ray<float, 3> get_ray(const float x, const float y) const
+  Camera(const Screen& screen) : screen(screen)
   {
-    const Vector3df direction = position - position; //Nonsense
-    const Ray<float, 3> ray(position, direction);
+    this->viewport_width = viewport_height * (static_cast<double>(screen.getWidth())/screen.getHeight());
+    this->viewport_u = {viewport_width, 0, 0};
+    this->viewport_v = {0, -viewport_height, 0};
+    this->pixel_delta_u =  (viewport_u.length()/screen.getWidth()) * viewport_u;
+    this->pixel_delta_v =  (viewport_v.length()/screen.getHeight()) * viewport_v;
+    float factor = 0.5f;
+    Vector3df origin = {0,0,1};
+    this-> viewport_upper_left = camera_center - origin - factor * viewport_u -  factor * viewport_v;
+    this->pixel00_loc = viewport_upper_left + factor * (pixel_delta_u + pixel_delta_v);
+  }
+
+  [[nodiscard]] Ray<float, 3> get_ray(const float x, const float y) const
+  {
+    const auto pixel_center = pixel00_loc + (x * pixel_delta_u) + (y * pixel_delta_v);
+    const auto ray_direction = pixel_center - camera_center;
+    const auto ray = Ray<float, 3>(camera_center, ray_direction);
     return ray;
   };
 };
@@ -129,11 +207,11 @@ public:
     Shape(const Material& material, const Sphere3df& shape)
             : material(material), geometricObject(shape) {}
 
-    Material getMaterial() const {
+    [[nodiscard]] Material getMaterial() const {
         return material;
     }
 
-    Sphere3df getGeometricObject() const {
+    [[nodiscard]] Sphere3df getGeometricObject() const {
         return geometricObject;
     }
 };
@@ -184,13 +262,32 @@ int main(void) {
   //   Sehstrahl für x,y mit Kamera erzeugen
   //   Farbe mit raytracing-Methode bestimmen
   //   Beim Bildschirm die Farbe für Pixel x,y, setzten
-    auto aspect_ratio = 16.0 / 9.0;
-    int image_width = 400;
+  constexpr auto aspect_ratio = 1;
+  constexpr int image_width = 400;
 
-    int image_height = int(image_width / aspect_ratio);
-    image_height = (image_height < 1) ? 1 : image_height;
+  int image_height = static_cast<int>(image_width / aspect_ratio);
+  image_height = (image_height < 1) ? 1 : image_height;
 
-    Screen screen = Screen(image_width, image_height);
-    return 0;
+  auto screen = Screen(image_width, image_height);
+  auto camera = Camera(screen);
+  Vector3df sphereCenter = {10, 0, -1};
+  Sphere3df sphere = Sphere3df(sphereCenter, 5);
+
+  for (int y = 0; y < image_height; ++y)
+  {
+    for (int x = 0; x < image_width; ++x)
+    {
+      Ray ray = camera.get_ray(x, y);
+      if(sphere.intersects(ray) == 0)
+      {
+        screen.set_pixel(x,y, Color(0, 0, 0));
+      }else
+      {
+        screen.set_pixel(x,y, Color(0, 255, 0));
+      }
+    }
+  }
+  screen.renderSDL2();
+  return 0;
 }
 
