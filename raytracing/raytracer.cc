@@ -143,7 +143,7 @@ class Camera {
 private:
   Screen screen;
   float viewport_width = 0;
-  float viewport_height = 2.0;
+  float viewport_height = 1.0;
   Vector3df camera_center = {0, 0, 10};
   Vector3df viewport_u = {0,0,0};
   Vector3df viewport_v = {0,0,0};
@@ -270,8 +270,8 @@ int main(void) {
 
   auto screen = Screen(image_width, image_height);
   auto camera = Camera(screen);
-  Vector3df sphereCenter = {10, 0, -1};
-  Sphere3df sphere = Sphere3df(sphereCenter, 5);
+  Vector3df sphereCenter = {2, 0, -1};
+  Sphere3df sphere = Sphere3df(sphereCenter, 1);
 
   for (int y = 0; y < image_height; ++y)
   {
