@@ -142,9 +142,9 @@ public:
 class Camera {
 private:
   Screen screen;
-  float viewport_width = 0;
-  float viewport_height = 2.0;
-  Vector3df camera_center = {0, 0, 10};
+  float viewport_width = 2.0;
+  float viewport_height = 0;
+  Vector3df camera_center = {0, 0, 0};
   Vector3df viewport_u = {0,0,0};
   Vector3df viewport_v = {0,0,0};
   Vector3df pixel_delta_u = {0,0,0};
@@ -154,15 +154,14 @@ private:
 public:
   Camera(const Screen& screen) : screen(screen)
   {
-    this->viewport_width = viewport_height * (static_cast<double>(screen.getWidth())/screen.getHeight());
+    this->viewport_height = viewport_width * (static_cast<double>(screen.getHeight())/screen.getWidth());
     this->viewport_u = {viewport_width, 0, 0};
     this->viewport_v = {0, -viewport_height, 0};
-    this->pixel_delta_u =  (viewport_u.length()/screen.getWidth()) * viewport_u;
-    this->pixel_delta_v =  (viewport_v.length()/screen.getHeight()) * viewport_v;
-    float factor = 0.5f;
-    Vector3df origin = {0,0,1};
-    this-> viewport_upper_left = camera_center - origin - factor * viewport_u -  factor * viewport_v;
-    this->pixel00_loc = viewport_upper_left + factor * (pixel_delta_u + pixel_delta_v);
+    this->pixel_delta_u =  (1.0f/screen.getWidth()) * viewport_u;
+    this->pixel_delta_v =  (1.0f/screen.getHeight()) * viewport_v;
+    Vector3df d = {0,0,-1};
+    this-> viewport_upper_left = camera_center - d - 0.5f * viewport_u -  0.5f * viewport_v;
+    this->pixel00_loc = viewport_upper_left + 0.5f * (pixel_delta_u + pixel_delta_v);
   }
 
   [[nodiscard]] Ray<float, 3> get_ray(const float x, const float y) const
@@ -184,12 +183,11 @@ public:
 // Das "Material" der Objektoberfläche mit ambienten, diffusem und reflektiven Farbanteil.
 class Material {
 public:
-    Color ambient;
-    Color diffuse;
-    Color reflective;
+    Color diffuseColor;
+    bool reflective;
 
-    Material(const Color& ambient, const Color& diffuse, const Color& reflective)
-            : ambient(ambient), diffuse(diffuse), reflective(reflective) {}
+    Material(const Color& diffuseColor, const bool reflective)
+            : diffuseColor(diffuseColor), reflective(reflective) {}
 };
 
 
@@ -244,12 +242,71 @@ public:
 
 class Scene{
 private:
-    Vector3df lightSource;
+    Vector3df lightSource = {0,0,0};
     std::vector<Shape> objects;
-
+    void generateScene(){
+        for (int i = 0; i < 5; ++i) {
+            float zPosition = -10 - i * 5;
+            Material m = Material(Color((i *3456565) %  128 + 56, (i *213123) %  128 + 128, (i *2323235) %  128 + 80), false);
+            Vector3df sphereCenter = {0, 2, zPosition };
+            Sphere3df sphere = Sphere3df(sphereCenter, 1);
+            Shape shape(m, sphere);
+            objects.push_back(shape);
+        }
+    }
 
 public:
+    Scene() {
+        generateScene();
+    };
 
+    std::vector<Shape> getShapes(){
+        return objects;
+    }
+
+    Shape findeNearestShape(Ray3df ray){
+        Shape* visibleShape = nullptr;
+        float minimal_t = INFINITY;
+        for(Shape currentShape: objects){
+            float t = currentShape.getGeometricObject().intersects(ray);
+            if(t > 0){
+                visibleShape = &currentShape;
+                minimal_t = t;
+            }
+        }
+
+        return *visibleShape;
+    }
+};
+
+class Raytracer{
+public:
+    void render(){
+        constexpr auto aspect_ratio = 16.0/9.0;
+        constexpr int image_width = 900;
+
+        int image_height = static_cast<int>(image_width / aspect_ratio);
+
+        auto screen = Screen(image_width, image_height);
+        auto camera = Camera(screen);
+        Scene s = Scene();
+        for (int y = 0; y < image_height; y++){
+            for (int x = 0; x < image_width; x++){
+                Ray ray = camera.get_ray(x, y);
+                bool shapeHit = false;
+                for(Shape currentShape: s.getShapes()){
+                    if(currentShape.getGeometricObject().intersects(ray) != 0){
+                        screen.set_pixel(x, y, currentShape.getMaterial().diffuseColor);
+                        shapeHit = true;
+                    }
+                }
+                if(!shapeHit){
+                    screen.set_pixel(x,y, Color(0,0,0));
+                }
+            }
+        }
+        screen.renderSDL2();
+    };
 };
 
 // Die rekursive raytracing-Methode. Am besten ab einer bestimmten Rekursionstiefe (z.B. als Parameter übergeben) abbrechen.
@@ -262,32 +319,8 @@ int main(void) {
   //   Sehstrahl für x,y mit Kamera erzeugen
   //   Farbe mit raytracing-Methode bestimmen
   //   Beim Bildschirm die Farbe für Pixel x,y, setzten
-  constexpr auto aspect_ratio = 1;
-  constexpr int image_width = 400;
-
-  int image_height = static_cast<int>(image_width / aspect_ratio);
-  image_height = (image_height < 1) ? 1 : image_height;
-
-  auto screen = Screen(image_width, image_height);
-  auto camera = Camera(screen);
-  Vector3df sphereCenter = {10, 0, -1};
-  Sphere3df sphere = Sphere3df(sphereCenter, 5);
-
-  for (int y = 0; y < image_height; ++y)
-  {
-    for (int x = 0; x < image_width; ++x)
-    {
-      Ray ray = camera.get_ray(x, y);
-      if(sphere.intersects(ray) == 0)
-      {
-        screen.set_pixel(x,y, Color(0, 0, 0));
-      }else
-      {
-        screen.set_pixel(x,y, Color(0, 255, 0));
-      }
-    }
-  }
-  screen.renderSDL2();
+  Raytracer r = Raytracer();
+  r.render();
   return 0;
 }
 
