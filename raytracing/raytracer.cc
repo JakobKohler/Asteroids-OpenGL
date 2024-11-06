@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <iostream>
 #include <SDL2/SDL.h>
+#include <optional>
 // Die folgenden Kommentare beschreiben Datenstrukturen und Funktionen
 // Die Datenstrukturen und Funktionen die weiter hinten im Text beschrieben sind,
 // hängen höchstens von den vorhergehenden Datenstrukturen ab, aber nicht umgekehrt.
@@ -245,11 +246,11 @@ private:
     Vector3df lightSource = {0,0,0};
     std::vector<Shape> objects;
     void generateScene(){
-        for (int i = 0; i < 5; ++i) {
-            float zPosition = -10 - i * 5;
+        for (int i = 0; i < 8; ++i) {
+            float zPosition = -10 - i * 5; //WARUM MUSS ICH HIER INVERTIEREN, WENN FIND_NEAREST
             Material m = Material(Color((i *3456565) %  128 + 56, (i *213123) %  128 + 128, (i *2323235) %  128 + 80), false);
-            Vector3df sphereCenter = {0, 2, zPosition };
-            Sphere3df sphere = Sphere3df(sphereCenter, 1);
+            Vector3df sphereCenter = {0, -2, zPosition};
+            Sphere3df sphere = Sphere3df(sphereCenter, 5);
             Shape shape(m, sphere);
             objects.push_back(shape);
         }
@@ -264,18 +265,23 @@ public:
         return objects;
     }
 
-    Shape findeNearestShape(Ray3df ray){
-        Shape* visibleShape = nullptr;
-        float minimal_t = INFINITY;
-        for(Shape currentShape: objects){
-            float t = currentShape.getGeometricObject().intersects(ray);
-            if(t > 0){
-                visibleShape = &currentShape;
-                minimal_t = t;
+    std::optional<Shape> findeNearestShape(Ray3df ray){
+        std::optional<Shape> nearestShape;
+        bool shapeFound = false;
+        for(const Shape shape: objects){
+            float minimal_t = INFINITY;
+            float t = shape.getGeometricObject().intersects(ray);
+            //printf("%f", t); //WARUM gibt es keine Hits?
+            if(t != 0){
+                shapeFound = true;
+                nearestShape = shape;
             }
         }
-
-        return *visibleShape;
+        if(shapeFound){
+            return nearestShape;
+        }else{
+            return std::nullopt;
+        };
     }
 };
 
@@ -292,15 +298,21 @@ public:
         Scene s = Scene();
         for (int y = 0; y < image_height; y++){
             for (int x = 0; x < image_width; x++){
-                Ray ray = camera.get_ray(x, y);
-                bool shapeHit = false;
-                for(Shape currentShape: s.getShapes()){
-                    if(currentShape.getGeometricObject().intersects(ray) != 0){
-                        screen.set_pixel(x, y, currentShape.getMaterial().diffuseColor);
-                        shapeHit = true;
-                    }
-                }
-                if(!shapeHit){
+                  Ray ray = camera.get_ray(x, y);
+//                bool shapeHit = false;
+//                for(Shape currentShape: s.getShapes()){
+//                    if(currentShape.getGeometricObject().intersects(ray) != 0){
+//                        screen.set_pixel(x, y, currentShape.getMaterial().diffuseColor);
+//                        shapeHit = true;
+//                    }
+//                }
+//                if(!shapeHit){
+//                    screen.set_pixel(x,y, Color(0,0,0));
+//                }
+                std::optional<Shape> hit = s.findeNearestShape(ray);
+                if(hit.has_value()){
+                    screen.set_pixel(x,y, hit.value().getMaterial().diffuseColor);
+                }else{
                     screen.set_pixel(x,y, Color(0,0,0));
                 }
             }
