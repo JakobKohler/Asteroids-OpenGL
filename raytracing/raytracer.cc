@@ -168,7 +168,7 @@ public:
   [[nodiscard]] Ray<float, 3> get_ray(const float x, const float y) const
   {
     const auto pixel_center = pixel00_loc + (x * pixel_delta_u) + (y * pixel_delta_v);
-    const auto ray_direction = pixel_center - camera_center;
+    const auto ray_direction = camera_center - pixel_center; //Swap if not working
     const auto ray = Ray<float, 3>(camera_center, ray_direction);
     return ray;
   };
@@ -246,14 +246,30 @@ private:
     Vector3df lightSource = {0,0,0};
     std::vector<Shape> objects;
     void generateScene(){
-        for (int i = 0; i < 8; ++i) {
-            float zPosition = -10 - i * 5; //WARUM MUSS ICH HIER INVERTIEREN, WENN FIND_NEAREST
-            Material m = Material(Color((i *3456565) %  128 + 56, (i *213123) %  128 + 128, (i *2323235) %  128 + 80), false);
-            Vector3df sphereCenter = {0, -2, zPosition};
-            Sphere3df sphere = Sphere3df(sphereCenter, 5);
-            Shape shape(m, sphere);
-            objects.push_back(shape);
-        }
+//        for (int i = 0; i < 8; ++i) {
+//            float zPosition = -10.0f - i * 5;
+//            Material m = Material(Color((i *3456565) %  128 + 56, (i *213123) %  128 + 128, (i *2323235) %  128 + 80), false);
+//            Vector3df sphereCenter = {0, -4, zPosition};
+//            Sphere3df sphere = Sphere3df(sphereCenter, 1);
+//            Shape shape(m, sphere);
+//            objects.push_back(shape);
+//        }
+
+        Material redDiffuse =  Material(Color(240, 0, 0), false);
+        Material greenDiffuse =  Material(Color(0, 240, 0), false);
+        Material whiteDiffuse =  Material(Color(240, 240, 240), false);
+
+        Sphere3df sphereRegular = Sphere3df({0, 4, -20}, 1);
+        Shape redSphere(redDiffuse, sphereRegular);
+        objects.push_back(redSphere);
+
+        Sphere3df sphereRegular2 = Sphere3df({-10, 0, -20}, 1);
+        Shape greenSphere(greenDiffuse, sphereRegular2);
+        objects.push_back(greenSphere);
+
+        Sphere3df wall1 = Sphere3df({-10, 0, -30}, 1);
+        Shape whiteWall(whiteDiffuse, wall1);
+        objects.push_back(whiteWall);
     }
 
 public:
@@ -268,13 +284,13 @@ public:
     std::optional<Shape> findeNearestShape(Ray3df ray){
         std::optional<Shape> nearestShape;
         bool shapeFound = false;
+        float minimal_t = INFINITY;
         for(const Shape shape: objects){
-            float minimal_t = INFINITY;
             float t = shape.getGeometricObject().intersects(ray);
-            //printf("%f", t); //WARUM gibt es keine Hits?
-            if(t != 0){
-                shapeFound = true;
+            if(t != 0 && t < minimal_t){
+                minimal_t = t;
                 nearestShape = shape;
+                shapeFound = true;
             }
         }
         if(shapeFound){
