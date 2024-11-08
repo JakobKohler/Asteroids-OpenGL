@@ -245,6 +245,19 @@ class Scene{
 private:
     Vector3df lightSource = {0,0,0};
     std::vector<Shape> objects;
+    std::vector<Color> rainbowColors = {
+            Color(255, 0, 0),    // Red
+            Color(255, 127, 0),  // Orange
+            Color(255, 255, 0),  // Yellow
+            Color(0, 255, 0),    // Green
+            Color(0, 0, 255),    // Blue
+            Color(75, 0, 130),   // Indigo
+            Color(148, 0, 211),  // Violet
+            Color(255, 20, 147), // Deep Pink
+            Color(255, 105, 180), // Hot Pink
+            Color(255, 215, 0)    // Gold
+    };
+
     void generateScene(){
 //        for (int i = 0; i < 8; ++i) {
 //            float zPosition = -10.0f - i * 5;
@@ -255,21 +268,12 @@ private:
 //            objects.push_back(shape);
 //        }
 
-        Material redDiffuse =  Material(Color(240, 0, 0), false);
-        Material greenDiffuse =  Material(Color(0, 240, 0), false);
-        Material whiteDiffuse =  Material(Color(240, 240, 240), false);
-
-        Sphere3df sphereRegular = Sphere3df({0, 4, -20}, 1);
-        Shape redSphere(redDiffuse, sphereRegular);
-        objects.push_back(redSphere);
-
-        Sphere3df sphereRegular2 = Sphere3df({-10, 0, -20}, 1);
-        Shape greenSphere(greenDiffuse, sphereRegular2);
-        objects.push_back(greenSphere);
-
-        Sphere3df wall1 = Sphere3df({-10, 0, -30}, 1);
-        Shape whiteWall(whiteDiffuse, wall1);
-        objects.push_back(whiteWall);
+        for (int i = 0; i < rainbowColors.size(); ++i) {
+            Material rainbowMaterial = Material(rainbowColors[i], false);
+            Sphere3df sphereRegular = Sphere3df({static_cast<float>(-10 + i * 2), static_cast<float>((-0.5) * static_cast<float>(i*i)) + 10, -20}, 1); // Adjust position for spacing
+            Shape rainbowSphere(rainbowMaterial, sphereRegular);
+            objects.push_back(rainbowSphere);
+        }
     }
 
 public:
