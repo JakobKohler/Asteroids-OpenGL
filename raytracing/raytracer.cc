@@ -24,9 +24,21 @@ class Color {
 public:
   unsigned char r, g, b;
 
+    static const Color RED;
+    static const Color GREEN;
+    static const Color BLUE;
+    static const Color WHITE;
+    static const Color BLACK;
+
   explicit Color(const unsigned char red = 100, const unsigned char green = 0, const unsigned char blue = 0)
       : r(red), g(green), b(blue) {}
 };
+
+const Color Color::RED(255, 0, 0);
+const Color Color::GREEN(0, 255, 0);
+const Color Color::BLUE(0, 0, 255);
+const Color Color::WHITE(255, 255, 255);
+const Color Color::BLACK(0, 0, 0);
 
 class Screen {
 public:
@@ -143,32 +155,32 @@ public:
 class Camera {
 private:
   Screen screen;
-  float viewport_width = 2.0;
-  float viewport_height = 0;
+  const float viewport_width = 2.0;
+  const float focal_length = 2.0;
   Vector3df camera_center = {0, 0, 0};
-  Vector3df viewport_u = {0,0,0};
-  Vector3df viewport_v = {0,0,0};
   Vector3df pixel_delta_u = {0,0,0};
   Vector3df pixel_delta_v = {0,0,0};
-  Vector3df viewport_upper_left = {0, 0, 0};
   Vector3df pixel00_loc = {0,0,0};
 public:
-  Camera(const Screen& screen) : screen(screen)
-  {
-    this->viewport_height = viewport_width * (static_cast<double>(screen.getHeight())/screen.getWidth());
-    this->viewport_u = {viewport_width, 0, 0};
-    this->viewport_v = {0, -viewport_height, 0};
+  Camera(const Screen& screen) : screen(screen){
+    float viewport_height = viewport_width * (static_cast<double>(screen.getHeight())/screen.getWidth());
+
+    Vector3df viewport_u = {viewport_width, 0, 0};
+    Vector3df viewport_v = {0, -viewport_height, 0};
+
     this->pixel_delta_u =  (1.0f/screen.getWidth()) * viewport_u;
     this->pixel_delta_v =  (1.0f/screen.getHeight()) * viewport_v;
-    Vector3df d = {0,0,-1};
-    this-> viewport_upper_left = camera_center - d - 0.5f * viewport_u -  0.5f * viewport_v;
+
+    Vector3df cameraToScreenVector = {0,0,focal_length};
+    Vector3df viewport_upper_left = camera_center - cameraToScreenVector - 0.5f * viewport_u -  0.5f * viewport_v;
+
     this->pixel00_loc = viewport_upper_left + 0.5f * (pixel_delta_u + pixel_delta_v);
   }
 
   [[nodiscard]] Ray<float, 3> get_ray(const float x, const float y) const
   {
     const auto pixel_center = pixel00_loc + (x * pixel_delta_u) + (y * pixel_delta_v);
-    const auto ray_direction = camera_center - pixel_center; //Swap if not working
+    const auto ray_direction = pixel_center - camera_center; //Swap if not working
     const auto ray = Ray<float, 3>(camera_center, ray_direction);
     return ray;
   };
@@ -181,7 +193,6 @@ public:
 // kann der Farbanteil mit 255 multipliziert  und der Nachkommaanteil verworfen werden.
 
 
-// Das "Material" der Objektoberfläche mit ambienten, diffusem und reflektiven Farbanteil.
 class Material {
 public:
     Color diffuseColor;
@@ -245,35 +256,35 @@ class Scene{
 private:
     Vector3df lightSource = {0,0,0};
     std::vector<Shape> objects;
-    std::vector<Color> rainbowColors = {
-            Color(255, 0, 0),    // Red
-            Color(255, 127, 0),  // Orange
-            Color(255, 255, 0),  // Yellow
-            Color(0, 255, 0),    // Green
-            Color(0, 0, 255),    // Blue
-            Color(75, 0, 130),   // Indigo
-            Color(148, 0, 211),  // Violet
-            Color(255, 20, 147), // Deep Pink
-            Color(255, 105, 180), // Hot Pink
-            Color(255, 215, 0)    // Gold
-    };
+    const float BIG_RADIUS = 3000;
+    const float REG_RADIUS = 25;
+    const float ROOM_SIZE = 10;
 
     void generateScene(){
-//        for (int i = 0; i < 8; ++i) {
-//            float zPosition = -10.0f - i * 5;
-//            Material m = Material(Color((i *3456565) %  128 + 56, (i *213123) %  128 + 128, (i *2323235) %  128 + 80), false);
-//            Vector3df sphereCenter = {0, -4, zPosition};
-//            Sphere3df sphere = Sphere3df(sphereCenter, 1);
-//            Shape shape(m, sphere);
-//            objects.push_back(shape);
-//        }
+        Sphere3df leftWallSphere = Sphere3df({-(BIG_RADIUS + ROOM_SIZE),0,0}, BIG_RADIUS);
+        Shape leftWall = Shape({Color::RED, true}, leftWallSphere);
+        objects.push_back(leftWall);
 
-        for (int i = 0; i < rainbowColors.size(); ++i) {
-            Material rainbowMaterial = Material(rainbowColors[i], false);
-            Sphere3df sphereRegular = Sphere3df({static_cast<float>(-10 + i * 2), static_cast<float>((-0.5) * static_cast<float>(i*i)) + 10, -20}, 1); // Adjust position for spacing
-            Shape rainbowSphere(rainbowMaterial, sphereRegular);
-            objects.push_back(rainbowSphere);
-        }
+        Sphere3df rightWallSphere = Sphere3df({BIG_RADIUS + ROOM_SIZE,0,0}, BIG_RADIUS);
+        Shape rightWall = Shape({Color::GREEN, true}, rightWallSphere);
+        objects.push_back(rightWall);
+
+        Sphere3df floorSphere = Sphere3df({0,-(BIG_RADIUS + ROOM_SIZE),0}, BIG_RADIUS);
+        Shape floor = Shape({Color::WHITE, true}, floorSphere);
+        objects.push_back(floor);
+
+        Sphere3df ceilingSphere = Sphere3df({0,BIG_RADIUS + ROOM_SIZE,0}, BIG_RADIUS);
+        Shape ceiling = Shape({Color::WHITE, true}, ceilingSphere);
+        objects.push_back(ceiling);
+
+        Sphere3df backSphere = Sphere3df({0,BIG_RADIUS/2,-BIG_RADIUS}, BIG_RADIUS);
+        Shape back = Shape({Color::WHITE, true}, backSphere);
+        objects.push_back(back);
+
+        Sphere3df sceneSphere1 = Sphere3df({0,0,-200}, 1); //WO zum fick chillt die Rueckwand??
+        Shape obj1 = Shape({Color::BLUE, true}, sceneSphere1);
+        objects.push_back(obj1);
+
     }
 
 public:
@@ -291,7 +302,8 @@ public:
         float minimal_t = INFINITY;
         for(const Shape shape: objects){
             float t = shape.getGeometricObject().intersects(ray);
-            if(t != 0 && t < minimal_t){
+            Vector3df intersectionPoint = ray.origin + t * ray.direction;
+            if(t != 0 && t < minimal_t && intersectionPoint.vector[2] < 0){
                 minimal_t = t;
                 nearestShape = shape;
                 shapeFound = true;
@@ -309,7 +321,7 @@ class Raytracer{
 public:
     void render(){
         constexpr auto aspect_ratio = 16.0/9.0;
-        constexpr int image_width = 900;
+        constexpr int image_width = 1200;
 
         int image_height = static_cast<int>(image_width / aspect_ratio);
 
@@ -319,16 +331,6 @@ public:
         for (int y = 0; y < image_height; y++){
             for (int x = 0; x < image_width; x++){
                   Ray ray = camera.get_ray(x, y);
-//                bool shapeHit = false;
-//                for(Shape currentShape: s.getShapes()){
-//                    if(currentShape.getGeometricObject().intersects(ray) != 0){
-//                        screen.set_pixel(x, y, currentShape.getMaterial().diffuseColor);
-//                        shapeHit = true;
-//                    }
-//                }
-//                if(!shapeHit){
-//                    screen.set_pixel(x,y, Color(0,0,0));
-//                }
                 std::optional<Shape> hit = s.findeNearestShape(ray);
                 if(hit.has_value()){
                     screen.set_pixel(x,y, hit.value().getMaterial().diffuseColor);
