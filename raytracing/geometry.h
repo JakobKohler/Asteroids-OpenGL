@@ -83,6 +83,8 @@ protected:
   FLOAT radius;
 public:
   Sphere(Vector<FLOAT,N> center, FLOAT radius);
+
+  Vector<FLOAT, N> getCenter();
   
   // returns true iff the given ray intersects this sphere
   // context.intersection is set to the intersection point,

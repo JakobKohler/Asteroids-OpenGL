@@ -32,6 +32,24 @@ public:
 
   explicit Color(const unsigned char red = 100, const unsigned char green = 0, const unsigned char blue = 0)
       : r(red), g(green), b(blue) {}
+
+    friend Color operator*(const Color& color, float factor) {
+        // Create a new Color object with the multiplied values
+        return Color(
+                static_cast<unsigned char>(std::min(255.0f, color.r * factor)),
+                static_cast<unsigned char>(std::min(255.0f, color.g * factor)),
+                static_cast<unsigned char>(std::min(255.0f, color.b * factor))
+        );
+    }
+
+    friend Color operator+(const Color& color, Color value) {
+        // Create a new Color object with the multiplied values
+        return Color(
+                static_cast<unsigned char>(std::min(255, color.r + value.r)),
+                static_cast<unsigned char>(std::min(255, color.g + value.r)),
+                static_cast<unsigned char>(std::min(255, color.b + value.r))
+        );
+    }
 };
 
 const Color Color::RED(255, 0, 0);
@@ -156,7 +174,7 @@ class Camera {
 private:
   Screen screen;
   const float viewport_width = 2.0;
-  const float focal_length = 2.0;
+  const float focal_length = 1.0;
   Vector3df camera_center = {0, 0, 0};
   Vector3df pixel_delta_u = {0,0,0};
   Vector3df pixel_delta_v = {0,0,0};
@@ -204,6 +222,7 @@ public:
 
 
 
+
 // Ein "Objekt", z.B. eine Kugel oder ein Dreieck, und dem zugehörigen Material der Oberfläche.
 // Im Prinzip ein Wrapper-Objekt, das mindestens Material und geometrisches Objekt zusammenfasst.
 // Kugel und Dreieck finden Sie in geometry.h/tcc
@@ -226,7 +245,14 @@ public:
     }
 };
 
+class HitContext{
+public:
+    Shape hit;
+    Vector3df intersection;
 
+    HitContext(const Shape hit, const Vector3df intersection)
+            : hit(hit), intersection(intersection) {}
+};
 
 // verschiedene Materialdefinition, z.B. Mattes Schwarz, Mattes Rot, Reflektierendes Weiss, ...
 // im wesentlichen Variablen, die mit Konstruktoraufrufen initialisiert werden.
@@ -256,9 +282,10 @@ class Scene{
 private:
     Vector3df lightSource = {0,0,0};
     std::vector<Shape> objects;
-    const float BIG_RADIUS = 3000;
-    const float REG_RADIUS = 25;
+    const float BIG_RADIUS = 10000;
+    const float REG_RADIUS = 3;
     const float ROOM_SIZE = 10;
+    const float ROOM_DEPTH_FACTOR = 5;
 
     void generateScene(){
         Sphere3df leftWallSphere = Sphere3df({-(BIG_RADIUS + ROOM_SIZE),0,0}, BIG_RADIUS);
@@ -277,14 +304,23 @@ private:
         Shape ceiling = Shape({Color::WHITE, true}, ceilingSphere);
         objects.push_back(ceiling);
 
-        Sphere3df backSphere = Sphere3df({0,BIG_RADIUS/2,-BIG_RADIUS}, BIG_RADIUS);
+        Sphere3df backSphere = Sphere3df({0,0,-BIG_RADIUS - 5 * ROOM_SIZE}, BIG_RADIUS);
         Shape back = Shape({Color::WHITE, true}, backSphere);
         objects.push_back(back);
 
-        Sphere3df sceneSphere1 = Sphere3df({0,0,-200}, 1); //WO zum fick chillt die Rueckwand??
-        Shape obj1 = Shape({Color::BLUE, true}, sceneSphere1);
+        Sphere3df sceneSphere1 = Sphere3df({5,-ROOM_SIZE + REG_RADIUS, -25}, REG_RADIUS);
+        Shape obj1 = Shape({Color::RED, true}, sceneSphere1);
         objects.push_back(obj1);
 
+        Sphere3df sceneSphere2 = Sphere3df({-5,-ROOM_SIZE + REG_RADIUS, -35}, REG_RADIUS);
+        Shape obj2 = Shape({Color::BLUE, true}, sceneSphere2);
+        objects.push_back(obj2);
+
+        Sphere3df sceneSphere3 = Sphere3df({3,-ROOM_SIZE + REG_RADIUS, -45}, REG_RADIUS);
+        Shape obj3 = Shape({Color::BLUE, true}, sceneSphere3);
+        objects.push_back(obj3);
+
+        lightSource = {0,ROOM_SIZE - 1, (ROOM_DEPTH_FACTOR -1) * ROOM_SIZE * (-1)};
     }
 
 public:
@@ -296,8 +332,13 @@ public:
         return objects;
     }
 
-    std::optional<Shape> findeNearestShape(Ray3df ray){
+    Vector3df getLightSource(){
+        return lightSource;
+    }
+
+    std::optional<HitContext> findeNearestShape(Ray3df ray){
         std::optional<Shape> nearestShape;
+        std::optional<HitContext> hitContext;
         bool shapeFound = false;
         float minimal_t = INFINITY;
         for(const Shape shape: objects){
@@ -307,10 +348,11 @@ public:
                 minimal_t = t;
                 nearestShape = shape;
                 shapeFound = true;
+                hitContext = HitContext(shape, intersectionPoint);
             }
         }
         if(shapeFound){
-            return nearestShape;
+            return hitContext;
         }else{
             return std::nullopt;
         };
@@ -319,6 +361,29 @@ public:
 
 class Raytracer{
 public:
+    static Color getColorLambertian(HitContext hitContext, Scene scene){
+        Vector3df sphereSurfaceVector = hitContext.intersection - hitContext.hit.getGeometricObject().getCenter();
+        sphereSurfaceVector.normalize();
+        Vector3df lightSourceNormal = scene.getLightSource() - hitContext.intersection;
+        lightSourceNormal.normalize();
+        // Schatten nochmal nach Folien ueberarbeiten
+//        std::optional<HitContext> shadowRayHC = scene.findeNearestShape(Ray(hitContext.intersection, lightSourceNormal)); //Hier bei intersection koennte die Akne entstehen. Punkt am normalen Vektor verschieben
+//        if(shadowRayHC.has_value()){
+//            Vector3df lightSourceVector = scene.getLightSource() - hitContext.intersection;
+//            Vector3df hitLightVector = scene.getLightSource() - shadowRayHC.value().intersection;
+//            Vector3df hitHitVector = hitContext.intersection - shadowRayHC.value().intersection;
+//
+//            if(hitHitVector.length() <= lightSourceVector.length() && hitLightVector.length() <= lightSourceVector.length()){
+//                return Color(0,0,0);
+//            }
+//        }
+
+        float ambientPart = 0.2f;
+
+        float intensity = ambientPart + std::max(0.0f, sphereSurfaceVector * lightSourceNormal);
+        return hitContext.hit.getMaterial().diffuseColor * intensity;
+    }
+
     void render(){
         constexpr auto aspect_ratio = 16.0/9.0;
         constexpr int image_width = 1200;
@@ -330,10 +395,11 @@ public:
         Scene s = Scene();
         for (int y = 0; y < image_height; y++){
             for (int x = 0; x < image_width; x++){
-                  Ray ray = camera.get_ray(x, y);
-                std::optional<Shape> hit = s.findeNearestShape(ray);
-                if(hit.has_value()){
-                    screen.set_pixel(x,y, hit.value().getMaterial().diffuseColor);
+                Ray ray = camera.get_ray(x, y);
+                std::optional<HitContext> hitContext = s.findeNearestShape(ray);
+                if(hitContext.has_value()){
+                    Color color = getColorLambertian(hitContext.value(), s);
+                    screen.set_pixel(x,y, color);
                 }else{
                     screen.set_pixel(x,y, Color(0,0,0));
                 }
