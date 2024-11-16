@@ -86,6 +86,11 @@ bool Sphere<FLOAT, N>::inside(const Vector<FLOAT, N> p) const {
     return centerVector.length() <= this->radius;
 }
 
+template <class FLOAT, size_t N>
+Vector<FLOAT, N> Sphere<FLOAT, N>::getCenter() {
+    return this->center;
+}
+
 // solution via
 // (g(t) - center )^2  = ( (ray.origin - center) + t ray.direction)^2 = r^2 
 // and abc-formula

@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <iostream>
 #include <SDL2/SDL.h>
+#include <optional>
 // Die folgenden Kommentare beschreiben Datenstrukturen und Funktionen
 // Die Datenstrukturen und Funktionen die weiter hinten im Text beschrieben sind,
 // hängen höchstens von den vorhergehenden Datenstrukturen ab, aber nicht umgekehrt.
@@ -23,9 +24,39 @@ class Color {
 public:
   unsigned char r, g, b;
 
+    static const Color RED;
+    static const Color GREEN;
+    static const Color BLUE;
+    static const Color WHITE;
+    static const Color BLACK;
+
   explicit Color(const unsigned char red = 100, const unsigned char green = 0, const unsigned char blue = 0)
       : r(red), g(green), b(blue) {}
+
+    friend Color operator*(const Color& color, float factor) {
+        // Create a new Color object with the multiplied values
+        return Color(
+                static_cast<unsigned char>(std::min(255.0f, color.r * factor)),
+                static_cast<unsigned char>(std::min(255.0f, color.g * factor)),
+                static_cast<unsigned char>(std::min(255.0f, color.b * factor))
+        );
+    }
+
+    friend Color operator+(const Color& color, Color value) {
+        // Create a new Color object with the multiplied values
+        return Color(
+                static_cast<unsigned char>(std::min(255, color.r + value.r)),
+                static_cast<unsigned char>(std::min(255, color.g + value.r)),
+                static_cast<unsigned char>(std::min(255, color.b + value.r))
+        );
+    }
 };
+
+const Color Color::RED(255, 0, 0);
+const Color Color::GREEN(0, 255, 0);
+const Color Color::BLUE(0, 0, 255);
+const Color Color::WHITE(255, 255, 255);
+const Color Color::BLACK(0, 0, 0);
 
 class Screen {
 public:
@@ -142,33 +173,32 @@ public:
 class Camera {
 private:
   Screen screen;
-  float viewport_width = 0;
-  float viewport_height = 1.0;
-  Vector3df camera_center = {0, 0, 10};
-  Vector3df viewport_u = {0,0,0};
-  Vector3df viewport_v = {0,0,0};
+  const float viewport_width = 2.0;
+  const float focal_length = 1.0;
+  Vector3df camera_center = {0, 0, 0};
   Vector3df pixel_delta_u = {0,0,0};
   Vector3df pixel_delta_v = {0,0,0};
-  Vector3df viewport_upper_left = {0, 0, 0};
   Vector3df pixel00_loc = {0,0,0};
 public:
-  Camera(const Screen& screen) : screen(screen)
-  {
-    this->viewport_width = viewport_height * (static_cast<double>(screen.getWidth())/screen.getHeight());
-    this->viewport_u = {viewport_width, 0, 0};
-    this->viewport_v = {0, -viewport_height, 0};
-    this->pixel_delta_u =  (viewport_u.length()/screen.getWidth()) * viewport_u;
-    this->pixel_delta_v =  (viewport_v.length()/screen.getHeight()) * viewport_v;
-    float factor = 0.5f;
-    Vector3df origin = {0,0,1};
-    this-> viewport_upper_left = camera_center - origin - factor * viewport_u -  factor * viewport_v;
-    this->pixel00_loc = viewport_upper_left + factor * (pixel_delta_u + pixel_delta_v);
+  Camera(const Screen& screen) : screen(screen){
+    float viewport_height = viewport_width * (static_cast<double>(screen.getHeight())/screen.getWidth());
+
+    Vector3df viewport_u = {viewport_width, 0, 0};
+    Vector3df viewport_v = {0, -viewport_height, 0};
+
+    this->pixel_delta_u =  (1.0f/screen.getWidth()) * viewport_u;
+    this->pixel_delta_v =  (1.0f/screen.getHeight()) * viewport_v;
+
+    Vector3df cameraToScreenVector = {0,0,focal_length};
+    Vector3df viewport_upper_left = camera_center - cameraToScreenVector - 0.5f * viewport_u -  0.5f * viewport_v;
+
+    this->pixel00_loc = viewport_upper_left + 0.5f * (pixel_delta_u + pixel_delta_v);
   }
 
   [[nodiscard]] Ray<float, 3> get_ray(const float x, const float y) const
   {
     const auto pixel_center = pixel00_loc + (x * pixel_delta_u) + (y * pixel_delta_v);
-    const auto ray_direction = pixel_center - camera_center;
+    const auto ray_direction = pixel_center - camera_center; //Swap if not working
     const auto ray = Ray<float, 3>(camera_center, ray_direction);
     return ray;
   };
@@ -181,16 +211,15 @@ public:
 // kann der Farbanteil mit 255 multipliziert  und der Nachkommaanteil verworfen werden.
 
 
-// Das "Material" der Objektoberfläche mit ambienten, diffusem und reflektiven Farbanteil.
 class Material {
 public:
-    Color ambient;
-    Color diffuse;
-    Color reflective;
+    Color diffuseColor;
+    bool reflective;
 
-    Material(const Color& ambient, const Color& diffuse, const Color& reflective)
-            : ambient(ambient), diffuse(diffuse), reflective(reflective) {}
+    Material(const Color& diffuseColor, const bool reflective)
+            : diffuseColor(diffuseColor), reflective(reflective) {}
 };
+
 
 
 
@@ -216,7 +245,14 @@ public:
     }
 };
 
+class HitContext{
+public:
+    Shape hit;
+    Vector3df intersection;
 
+    HitContext(const Shape hit, const Vector3df intersection)
+            : hit(hit), intersection(intersection) {}
+};
 
 // verschiedene Materialdefinition, z.B. Mattes Schwarz, Mattes Rot, Reflektierendes Weiss, ...
 // im wesentlichen Variablen, die mit Konstruktoraufrufen initialisiert werden.
@@ -244,12 +280,133 @@ public:
 
 class Scene{
 private:
-    Vector3df lightSource;
+    Vector3df lightSource = {0,0,0};
     std::vector<Shape> objects;
+    const float BIG_RADIUS = 10000;
+    const float REG_RADIUS = 3;
+    const float ROOM_SIZE = 10;
+    const float ROOM_DEPTH_FACTOR = 5;
 
+    void generateScene(){
+        Sphere3df leftWallSphere = Sphere3df({-(BIG_RADIUS + ROOM_SIZE),0,0}, BIG_RADIUS);
+        Shape leftWall = Shape({Color::RED, true}, leftWallSphere);
+        objects.push_back(leftWall);
+
+        Sphere3df rightWallSphere = Sphere3df({BIG_RADIUS + ROOM_SIZE,0,0}, BIG_RADIUS);
+        Shape rightWall = Shape({Color::GREEN, true}, rightWallSphere);
+        objects.push_back(rightWall);
+
+        Sphere3df floorSphere = Sphere3df({0,-(BIG_RADIUS + ROOM_SIZE),0}, BIG_RADIUS);
+        Shape floor = Shape({Color::WHITE, true}, floorSphere);
+        objects.push_back(floor);
+
+        Sphere3df ceilingSphere = Sphere3df({0,BIG_RADIUS + ROOM_SIZE,0}, BIG_RADIUS);
+        Shape ceiling = Shape({Color::WHITE, true}, ceilingSphere);
+        objects.push_back(ceiling);
+
+        Sphere3df backSphere = Sphere3df({0,0,-BIG_RADIUS - 5 * ROOM_SIZE}, BIG_RADIUS);
+        Shape back = Shape({Color::WHITE, true}, backSphere);
+        objects.push_back(back);
+
+        Sphere3df sceneSphere1 = Sphere3df({5,-ROOM_SIZE + REG_RADIUS, -25}, REG_RADIUS);
+        Shape obj1 = Shape({Color::RED, true}, sceneSphere1);
+        objects.push_back(obj1);
+
+        Sphere3df sceneSphere2 = Sphere3df({-5,-ROOM_SIZE + REG_RADIUS, -35}, REG_RADIUS);
+        Shape obj2 = Shape({Color::BLUE, true}, sceneSphere2);
+        objects.push_back(obj2);
+
+        Sphere3df sceneSphere3 = Sphere3df({3,-ROOM_SIZE + REG_RADIUS, -45}, REG_RADIUS);
+        Shape obj3 = Shape({Color::BLUE, true}, sceneSphere3);
+        objects.push_back(obj3);
+
+        lightSource = {0,ROOM_SIZE - 1, (ROOM_DEPTH_FACTOR -1) * ROOM_SIZE * (-1)};
+    }
 
 public:
+    Scene() {
+        generateScene();
+    };
 
+    std::vector<Shape> getShapes(){
+        return objects;
+    }
+
+    Vector3df getLightSource(){
+        return lightSource;
+    }
+
+    std::optional<HitContext> findeNearestShape(Ray3df ray){
+        std::optional<Shape> nearestShape;
+        std::optional<HitContext> hitContext;
+        bool shapeFound = false;
+        float minimal_t = INFINITY;
+        for(const Shape shape: objects){
+            float t = shape.getGeometricObject().intersects(ray);
+            Vector3df intersectionPoint = ray.origin + t * ray.direction;
+            if(t != 0 && t < minimal_t && intersectionPoint.vector[2] < 0){
+                minimal_t = t;
+                nearestShape = shape;
+                shapeFound = true;
+                hitContext = HitContext(shape, intersectionPoint);
+            }
+        }
+        if(shapeFound){
+            return hitContext;
+        }else{
+            return std::nullopt;
+        };
+    }
+};
+
+class Raytracer{
+public:
+    static Color getColorLambertian(HitContext hitContext, Scene scene){
+        Vector3df sphereSurfaceVector = hitContext.intersection - hitContext.hit.getGeometricObject().getCenter();
+        sphereSurfaceVector.normalize();
+        Vector3df lightSourceNormal = scene.getLightSource() - hitContext.intersection;
+        lightSourceNormal.normalize();
+        // Schatten nochmal nach Folien ueberarbeiten
+//        std::optional<HitContext> shadowRayHC = scene.findeNearestShape(Ray(hitContext.intersection, lightSourceNormal)); //Hier bei intersection koennte die Akne entstehen. Punkt am normalen Vektor verschieben
+//        if(shadowRayHC.has_value()){
+//            Vector3df lightSourceVector = scene.getLightSource() - hitContext.intersection;
+//            Vector3df hitLightVector = scene.getLightSource() - shadowRayHC.value().intersection;
+//            Vector3df hitHitVector = hitContext.intersection - shadowRayHC.value().intersection;
+//
+//            if(hitHitVector.length() <= lightSourceVector.length() && hitLightVector.length() <= lightSourceVector.length()){
+//                return Color(0,0,0);
+//            }
+//        }
+
+        float ambientPart = 0.2f;
+
+        float intensity = ambientPart + std::max(0.0f, sphereSurfaceVector * lightSourceNormal);
+        return hitContext.hit.getMaterial().diffuseColor * intensity;
+    }
+
+    void render(){
+        constexpr auto aspect_ratio = 16.0/9.0;
+        constexpr int image_width = 1200;
+
+        int image_height = static_cast<int>(image_width / aspect_ratio);
+
+        auto screen = Screen(image_width, image_height);
+        auto camera = Camera(screen);
+        Scene s = Scene();
+        for (int y = 0; y < image_height; y++){
+            for (int x = 0; x < image_width; x++){
+                Ray ray = camera.get_ray(x, y);
+                std::optional<HitContext> hitContext = s.findeNearestShape(ray);
+                if(hitContext.has_value()){
+                    Color color = getColorLambertian(hitContext.value(), s);
+                    screen.set_pixel(x,y, color);
+                }else{
+                    screen.set_pixel(x,y, Color(0,0,0));
+                }
+            }
+        }
+        screen.renderSDL2();
+    };
 };
 
 // Die rekursive raytracing-Methode. Am besten ab einer bestimmten Rekursionstiefe (z.B. als Parameter übergeben) abbrechen.
@@ -262,32 +419,8 @@ int main(void) {
   //   Sehstrahl für x,y mit Kamera erzeugen
   //   Farbe mit raytracing-Methode bestimmen
   //   Beim Bildschirm die Farbe für Pixel x,y, setzten
-  constexpr auto aspect_ratio = 1;
-  constexpr int image_width = 400;
-
-  int image_height = static_cast<int>(image_width / aspect_ratio);
-  image_height = (image_height < 1) ? 1 : image_height;
-
-  auto screen = Screen(image_width, image_height);
-  auto camera = Camera(screen);
-  Vector3df sphereCenter = {2, 0, -1};
-  Sphere3df sphere = Sphere3df(sphereCenter, 1);
-
-  for (int y = 0; y < image_height; ++y)
-  {
-    for (int x = 0; x < image_width; ++x)
-    {
-      Ray ray = camera.get_ray(x, y);
-      if(sphere.intersects(ray) == 0)
-      {
-        screen.set_pixel(x,y, Color(0, 0, 0));
-      }else
-      {
-        screen.set_pixel(x,y, Color(0, 255, 0));
-      }
-    }
-  }
-  screen.renderSDL2();
+  Raytracer r = Raytracer();
+  r.render();
   return 0;
 }
 
