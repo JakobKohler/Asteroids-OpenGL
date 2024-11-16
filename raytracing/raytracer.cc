@@ -308,15 +308,15 @@ private:
         Shape back = Shape({Color::WHITE, true}, backSphere);
         objects.push_back(back);
 
-        Sphere3df sceneSphere1 = Sphere3df({5,-ROOM_SIZE + REG_RADIUS, -25}, REG_RADIUS);
-        Shape obj1 = Shape({Color::RED, true}, sceneSphere1);
+        Sphere3df sceneSphere1 = Sphere3df({7,-ROOM_SIZE + REG_RADIUS, -25}, REG_RADIUS);
+        Shape obj1 = Shape({Color::BLUE, true}, sceneSphere1);
         objects.push_back(obj1);
 
         Sphere3df sceneSphere2 = Sphere3df({-5,-ROOM_SIZE + REG_RADIUS, -35}, REG_RADIUS);
         Shape obj2 = Shape({Color::BLUE, true}, sceneSphere2);
         objects.push_back(obj2);
 
-        Sphere3df sceneSphere3 = Sphere3df({3,-ROOM_SIZE + REG_RADIUS, -45}, REG_RADIUS);
+        Sphere3df sceneSphere3 = Sphere3df({3,-ROOM_SIZE + REG_RADIUS, -40}, REG_RADIUS);
         Shape obj3 = Shape({Color::BLUE, true}, sceneSphere3);
         objects.push_back(obj3);
 
@@ -332,21 +332,22 @@ public:
         return objects;
     }
 
-    Vector3df getLightSource(){
+    [[nodiscard]] Vector3df getLightSource() const
+    {
         return lightSource;
     }
 
     std::optional<HitContext> findeNearestShape(Ray3df ray){
-        std::optional<Shape> nearestShape;
         std::optional<HitContext> hitContext;
         bool shapeFound = false;
         float minimal_t = INFINITY;
         for(const Shape shape: objects){
-            float t = shape.getGeometricObject().intersects(ray);
+            const float t = shape.getGeometricObject().intersects(ray);
             Vector3df intersectionPoint = ray.origin + t * ray.direction;
             if(t != 0 && t < minimal_t && intersectionPoint.vector[2] < 0){
+                constexpr float epsilon = 0.000015f;
+                const Vector3df shiftedIntersection = intersectionPoint + epsilon  * (intersectionPoint - shape.getGeometricObject().getCenter());
                 minimal_t = t;
-                nearestShape = shape;
                 shapeFound = true;
                 hitContext = HitContext(shape, intersectionPoint);
             }
@@ -361,24 +362,31 @@ public:
 
 class Raytracer{
 public:
-    static Color getColorLambertian(HitContext hitContext, Scene scene){
+    static Color getColorLambertian(const HitContext& hitContext, Scene scene){
+        float ambientPart = 0.3f;
         Vector3df sphereSurfaceVector = hitContext.intersection - hitContext.hit.getGeometricObject().getCenter();
         sphereSurfaceVector.normalize();
         Vector3df lightSourceNormal = scene.getLightSource() - hitContext.intersection;
         lightSourceNormal.normalize();
         // Schatten nochmal nach Folien ueberarbeiten
-//        std::optional<HitContext> shadowRayHC = scene.findeNearestShape(Ray(hitContext.intersection, lightSourceNormal)); //Hier bei intersection koennte die Akne entstehen. Punkt am normalen Vektor verschieben
-//        if(shadowRayHC.has_value()){
-//            Vector3df lightSourceVector = scene.getLightSource() - hitContext.intersection;
-//            Vector3df hitLightVector = scene.getLightSource() - shadowRayHC.value().intersection;
-//            Vector3df hitHitVector = hitContext.intersection - shadowRayHC.value().intersection;
-//
-//            if(hitHitVector.length() <= lightSourceVector.length() && hitLightVector.length() <= lightSourceVector.length()){
-//                return Color(0,0,0);
-//            }
-//        }
+        float fac = 0.00002f;
 
-        float ambientPart = 0.2f;
+        if(hitContext.hit.getGeometricObject().getRadius() > 1000)
+        {
+            fac = 0.000002f;
+        } //WHY TF IS THE LAST BALL BUGGY AF
+
+        std::optional<HitContext> shadowRayHC = scene.findeNearestShape(Ray(hitContext.intersection + fac  * (hitContext.intersection - hitContext.hit.getGeometricObject().getCenter()), lightSourceNormal)); //Hier bei intersection koennte die Akne entstehen. Punkt am normalen Vektor verschieben
+        if(shadowRayHC.has_value()){                                                                        //Vielleicht abhaening vom Radius der betroffenen Sphere??
+            Vector3df lightSourceVector = scene.getLightSource() - hitContext.intersection;
+            Vector3df hitLightVector = scene.getLightSource() - shadowRayHC.value().intersection;
+            Vector3df hitHitVector = hitContext.intersection - shadowRayHC.value().intersection;
+
+            if(hitHitVector.length() < lightSourceVector.length() && hitLightVector.length() < lightSourceVector.length()){
+                return hitContext.hit.getMaterial().diffuseColor * ambientPart;
+            }
+        }
+
 
         float intensity = ambientPart + std::max(0.0f, sphereSurfaceVector * lightSourceNormal);
         return hitContext.hit.getMaterial().diffuseColor * intensity;
@@ -400,8 +408,6 @@ public:
                 if(hitContext.has_value()){
                     Color color = getColorLambertian(hitContext.value(), s);
                     screen.set_pixel(x,y, color);
-                }else{
-                    screen.set_pixel(x,y, Color(0,0,0));
                 }
             }
         }

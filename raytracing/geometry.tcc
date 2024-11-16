@@ -87,8 +87,13 @@ bool Sphere<FLOAT, N>::inside(const Vector<FLOAT, N> p) const {
 }
 
 template <class FLOAT, size_t N>
-Vector<FLOAT, N> Sphere<FLOAT, N>::getCenter() {
+Vector<FLOAT, N> Sphere<FLOAT, N>::getCenter() const {
     return this->center;
+}
+
+template <class FLOAT, size_t N>
+FLOAT Sphere<FLOAT, N>::getRadius() const{
+  return this->radius;
 }
 
 // solution via

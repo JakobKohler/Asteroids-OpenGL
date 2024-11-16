@@ -84,7 +84,8 @@ protected:
 public:
   Sphere(Vector<FLOAT,N> center, FLOAT radius);
 
-  Vector<FLOAT, N> getCenter();
+  Vector<FLOAT, N> getCenter() const;
+  FLOAT getRadius() const;
   
   // returns true iff the given ray intersects this sphere
   // context.intersection is set to the intersection point,
