@@ -293,35 +293,35 @@ private:
 
     void generateScene(){
         Sphere3df leftWallSphere = Sphere3df({-(BIG_RADIUS + ROOM_SIZE),0,0}, BIG_RADIUS);
-        Shape leftWall = Shape({Color::RED, true}, leftWallSphere);
+        Shape leftWall = Shape({Color::RED, false}, leftWallSphere);
         objects.push_back(leftWall);
 
         Sphere3df rightWallSphere = Sphere3df({BIG_RADIUS + ROOM_SIZE,0,0}, BIG_RADIUS);
-        Shape rightWall = Shape({Color::GREEN, true}, rightWallSphere);
+        Shape rightWall = Shape({Color::GREEN, false}, rightWallSphere);
         objects.push_back(rightWall);
 
         Sphere3df floorSphere = Sphere3df({0,-(BIG_RADIUS + ROOM_SIZE),0}, BIG_RADIUS);
-        Shape floor = Shape({Color::WHITE, true}, floorSphere);
+        Shape floor = Shape({Color::BLUE, false}, floorSphere);
         objects.push_back(floor);
 
         Sphere3df ceilingSphere = Sphere3df({0,BIG_RADIUS + ROOM_SIZE,0}, BIG_RADIUS);
-        Shape ceiling = Shape({Color::WHITE, true}, ceilingSphere);
+        Shape ceiling = Shape({Color::WHITE, false}, ceilingSphere);
         objects.push_back(ceiling);
 
         Sphere3df backSphere = Sphere3df({0,0,-BIG_RADIUS - 5 * ROOM_SIZE}, BIG_RADIUS);
-        Shape back = Shape({Color::WHITE, true}, backSphere);
+        Shape back = Shape({Color::WHITE, false}, backSphere);
         objects.push_back(back);
 
         Sphere3df sceneSphere1 = Sphere3df({6,-ROOM_SIZE + REG_RADIUS, -25}, REG_RADIUS);
-        Shape obj1 = Shape({Color::PINK, true}, sceneSphere1);
+        Shape obj1 = Shape({Color::PURPLE, true}, sceneSphere1);
         objects.push_back(obj1);
 
         Sphere3df sceneSphere2 = Sphere3df({-6,-ROOM_SIZE + REG_RADIUS, -35}, REG_RADIUS);
-        Shape obj2 = Shape({Color::PINK, true}, sceneSphere2);
+        Shape obj2 = Shape({Color::PURPLE, false}, sceneSphere2);
         objects.push_back(obj2);
 
         Sphere3df sceneSphere3 = Sphere3df({3,-ROOM_SIZE + REG_RADIUS, -40}, REG_RADIUS);
-        Shape obj3 = Shape({Color::PURPLE, true}, sceneSphere3);
+        Shape obj3 = Shape({Color::PURPLE, false}, sceneSphere3);
         objects.push_back(obj3);
 
         lightSource = {0, ROOM_SIZE - 1, (ROOM_DEPTH_FACTOR -1) * ROOM_SIZE * (-1)};
@@ -349,7 +349,6 @@ public:
             const float t = shape.getGeometricObject().intersects(ray);
             Vector3df intersectionPoint = ray.origin + t * ray.direction;
             if(t != 0 && t < minimal_t && intersectionPoint.vector[2] < 0){
-                constexpr float epsilon = 0.000015f;
                 minimal_t = t;
                 shapeFound = true;
                 hitContext = HitContext(shape, intersectionPoint);
@@ -370,7 +369,7 @@ private:
     {
         if(remainingDepth == 0)
         {
-            return Color::BLACK;
+            return Color::PINK;
         }
 
         const std::optional<HitContext> hitContext = scene.findeNearestShape(ray);
@@ -378,7 +377,17 @@ private:
         if(hitContext.has_value()){
             if(hitContext.value().hit.getMaterial().reflective)
             {
-                color = trace(ray, scene, remainingDepth - 1); //Hier reflected berechnen
+                const float acneCorrection = 1e-3;
+                Vector3df normal =  hitContext.value().intersection - hitContext.value().hit.getGeometricObject().getCenter();
+                normal.normalize();
+
+                const Vector3df shiftedOrigin = hitContext.value().intersection + acneCorrection  * normal;
+
+                float dotProduct = ray.direction * normal;
+                Vector3df reflectedDirection = ray.direction - 2.0f * dotProduct * normal;
+                Ray reflectedRay(shiftedOrigin, -1.0f * reflectedDirection);
+                color = trace(reflectedRay, scene, remainingDepth - 1);
+                printf("%d", remainingDepth); //WHY does it reach the depth limit? Appears to be inside of sphere //Maybe find nearest shape is broken again with closest shape being behind
             }else
             {
                 color = getColorLambertian(hitContext.value(), scene);
