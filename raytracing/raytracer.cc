@@ -30,12 +30,13 @@ public:
     static const Color WHITE;
     static const Color BLACK;
     static const Color PURPLE;
+    static const Color PINK;
+
 
   explicit Color(const unsigned char red = 0, const unsigned char green = 0, const unsigned char blue = 0)
       : r(red), g(green), b(blue) {}
 
     friend Color operator*(const Color& color, float factor) {
-        // Create a new Color object with the multiplied values
         return Color(
                 static_cast<unsigned char>(std::min(255.0f, color.r * factor)),
                 static_cast<unsigned char>(std::min(255.0f, color.g * factor)),
@@ -44,7 +45,6 @@ public:
     }
 
     friend Color operator+(const Color& color, Color value) {
-        // Create a new Color object with the multiplied values
         return Color(
                 static_cast<unsigned char>(std::min(255, color.r + value.r)),
                 static_cast<unsigned char>(std::min(255, color.g + value.r)),
@@ -59,6 +59,8 @@ const Color Color::BLUE(139, 233, 253);
 const Color Color::WHITE(248, 248, 242);
 const Color Color::BLACK(40, 42, 54);
 const Color Color::PURPLE(189, 147, 249);
+const Color Color::PINK(255, 121, 198);
+
 
 class Screen {
 public:
@@ -299,23 +301,23 @@ private:
         objects.push_back(rightWall);
 
         Sphere3df floorSphere = Sphere3df({0,-(BIG_RADIUS + ROOM_SIZE),0}, BIG_RADIUS);
-        Shape floor = Shape({Color::BLACK, true}, floorSphere);
+        Shape floor = Shape({Color::WHITE, true}, floorSphere);
         objects.push_back(floor);
 
         Sphere3df ceilingSphere = Sphere3df({0,BIG_RADIUS + ROOM_SIZE,0}, BIG_RADIUS);
-        Shape ceiling = Shape({Color::BLACK, true}, ceilingSphere);
+        Shape ceiling = Shape({Color::WHITE, true}, ceilingSphere);
         objects.push_back(ceiling);
 
         Sphere3df backSphere = Sphere3df({0,0,-BIG_RADIUS - 5 * ROOM_SIZE}, BIG_RADIUS);
-        Shape back = Shape({Color::BLACK, true}, backSphere);
+        Shape back = Shape({Color::WHITE, true}, backSphere);
         objects.push_back(back);
 
         Sphere3df sceneSphere1 = Sphere3df({6,-ROOM_SIZE + REG_RADIUS, -25}, REG_RADIUS);
-        Shape obj1 = Shape({Color::BLUE, true}, sceneSphere1);
+        Shape obj1 = Shape({Color::PINK, true}, sceneSphere1);
         objects.push_back(obj1);
 
         Sphere3df sceneSphere2 = Sphere3df({-6,-ROOM_SIZE + REG_RADIUS, -35}, REG_RADIUS);
-        Shape obj2 = Shape({Color::BLUE, true}, sceneSphere2);
+        Shape obj2 = Shape({Color::PINK, true}, sceneSphere2);
         objects.push_back(obj2);
 
         Sphere3df sceneSphere3 = Sphere3df({3,-ROOM_SIZE + REG_RADIUS, -40}, REG_RADIUS);
@@ -363,6 +365,28 @@ public:
 
 class Raytracer{
 private:
+
+    static Color trace(const Ray3df& ray, Scene scene, const int remainingDepth)
+    {
+        if(remainingDepth == 0)
+        {
+            return Color::BLACK;
+        }
+
+        const std::optional<HitContext> hitContext = scene.findeNearestShape(ray);
+        auto color = Color(0,0,0);
+        if(hitContext.has_value()){
+            if(hitContext.value().hit.getMaterial().reflective)
+            {
+                color = trace(ray, scene, remainingDepth - 1); //Hier reflected berechnen
+            }else
+            {
+                color = getColorLambertian(hitContext.value(), scene);
+            }
+        }
+        return color;
+    }
+
     static bool isShapeBetweenPoints(const HitContext& point1, const Vector3df point2, Scene scene)
     {
         const float acneCorrection = (point1.hit.getGeometricObject().getRadius() > 1000) ? 7e-8f : 5e-4f;
@@ -370,13 +394,13 @@ private:
         Vector3df dir = point2 - shifterOrigin;
         dir.normalize();
 
-        const auto lineBetween = Ray(shifterOrigin, dir);
+        const auto shadowRay = Ray(shifterOrigin, dir);
         const float ogHitLightDistance = (point1.intersection - point2).square_of_length();
 
         for(const Shape shape: scene.getShapes()){
-            const float t = shape.getGeometricObject().intersects(lineBetween);
+            const float t = shape.getGeometricObject().intersects(shadowRay);
             if(t != 0){
-                const Vector3df intersectionPoint = lineBetween.origin + t * lineBetween.direction;
+                const Vector3df intersectionPoint = shadowRay.origin + t * shadowRay.direction;
                 const float hitHitDistance = (intersectionPoint - point1.intersection).square_of_length();
                 const float hitLightDistance = (point2 - intersectionPoint).square_of_length();
                 if ((hitHitDistance <= ogHitLightDistance) && (hitLightDistance <= ogHitLightDistance)){
@@ -388,57 +412,35 @@ private:
     }
 public:
     static Color getColorLambertian(const HitContext& hitContext, Scene scene){
-        // const float acneCorrection = (hitContext.hit.getGeometricObject().getRadius() > 1000) ? 0.000002f : 0.00002f;
-        // const float acneCorrection = (hitContext.hit.getGeometricObject().getRadius() > 1000) ? 0.00000005f : 0.00000005f;
-        constexpr float ambientLight = 0.25f;
+        constexpr float ambientLight = 0.3f;
 
         Vector3df sphereSurfaceVector = hitContext.intersection - hitContext.hit.getGeometricObject().getCenter();
         sphereSurfaceVector.normalize();
         Vector3df lightSourceNormal = scene.getLightSource() - hitContext.intersection;
         lightSourceNormal.normalize();
 
-        /*// std::optional<HitContext> shadowRayHC = scene.findeNearestShape(Ray(hitContext.intersection + acneCorrection  * (hitContext.intersection - hitContext.hit.getGeometricObject().getCenter()),(1.0f) *lightSourceNormal)); //Hier bei intersection koennte die Akne entstehen. Punkt am normalen Vektor verschieben
-        // if(shadowRayHC.has_value()){
-        //     const Vector3df lightSourceVector = scene.getLightSource() - hitContext.intersection;
-        //     const Vector3df hitLightVector = scene.getLightSource() - shadowRayHC.value().intersection;
-        //     Vector3df hitHitVector = hitContext.intersection - shadowRayHC.value().intersection;
-        //
-        //     if(hitHitVector.length() < lightSourceVector.length() && hitLightVector.length() < lightSourceVector.length()){ //Might be incorrect, also getNearestObject might be incorrect in this case because its dependend on origin and not correct in this case
-        //         return hitContext.hit.getMaterial().diffuseColor * ambientLight;
-        //     }
-        // }
-        //*/
+        float intensity = ambientLight + std::max(0.0f, sphereSurfaceVector * lightSourceNormal);
+
         if(isShapeBetweenPoints(hitContext, scene.getLightSource(), scene))
         {
-            return hitContext.hit.getMaterial().diffuseColor * ambientLight;
+            intensity = ambientLight;
         }
-
-
-        const float intensity = ambientLight + std::max(0.0f, sphereSurfaceVector * lightSourceNormal);
         return hitContext.hit.getMaterial().diffuseColor * intensity;
     }
 
     static void render(Scene s){
         constexpr auto aspect_ratio = 16.0/9.0;
-        constexpr int image_width = 1600;
-
+        constexpr int image_width = 800;
         constexpr int image_height = static_cast<int>(image_width / aspect_ratio);
 
         auto screen = Screen(image_width, image_height);
         const auto camera = Camera(screen);
+
         for (int y = 0; y < image_height; y++){
             for (int x = 0; x < image_width; x++){
-                // if(x != 641 && y != 485)
-                // {
-                //     continue;
-                // }
-
                 const Ray ray = camera.get_ray(x, y);
-                std::optional<HitContext> hitContext = s.findeNearestShape(ray);
-                if(hitContext.has_value()){
-                    Color color = getColorLambertian(hitContext.value(), s);
-                    screen.set_pixel(x,y, color);
-                }
+                Color tracedColor = trace(ray, s, 3);
+                screen.set_pixel(x,y, tracedColor);
             }
         }
         screen.renderSDL2();
@@ -456,8 +458,7 @@ int main(void) {
   //   Farbe mit raytracing-Methode bestimmen
   //   Beim Bildschirm die Farbe für Pixel x,y, setzten
 
-    auto s = Scene();
-
+    const auto s = Scene();
     Raytracer::render(s);
     return 0;
 }
