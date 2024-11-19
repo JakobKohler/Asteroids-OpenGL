@@ -313,7 +313,7 @@ private:
         objects.push_back(back);
 
         Sphere3df sceneSphere1 = Sphere3df({6,-ROOM_SIZE + REG_RADIUS, -25}, REG_RADIUS);
-        Shape obj1 = Shape({Color::PURPLE, true}, sceneSphere1);
+        Shape obj1 = Shape({Color::PURPLE, false}, sceneSphere1);
         objects.push_back(obj1);
 
         Sphere3df sceneSphere2 = Sphere3df({-6,-ROOM_SIZE + REG_RADIUS, -35}, REG_RADIUS);
@@ -321,7 +321,7 @@ private:
         objects.push_back(obj2);
 
         Sphere3df sceneSphere3 = Sphere3df({3,-ROOM_SIZE + REG_RADIUS, -40}, REG_RADIUS);
-        Shape obj3 = Shape({Color::PURPLE, false}, sceneSphere3);
+        Shape obj3 = Shape({Color::PURPLE, true}, sceneSphere3);
         objects.push_back(obj3);
 
         lightSource = {0, ROOM_SIZE - 1, (ROOM_DEPTH_FACTOR -1) * ROOM_SIZE * (-1)};
@@ -348,7 +348,7 @@ public:
         for(const Shape shape: objects){
             const float t = shape.getGeometricObject().intersects(ray);
             Vector3df intersectionPoint = ray.origin + t * ray.direction;
-            if(t != 0 && t < minimal_t && intersectionPoint.vector[2] < 0){
+            if(t > 0 && t < minimal_t){
                 minimal_t = t;
                 shapeFound = true;
                 hitContext = HitContext(shape, intersectionPoint);
@@ -377,7 +377,7 @@ private:
         if(hitContext.has_value()){
             if(hitContext.value().hit.getMaterial().reflective)
             {
-                const float acneCorrection = 1e-3;
+                const float acneCorrection = 1e-2;
                 Vector3df normal =  hitContext.value().intersection - hitContext.value().hit.getGeometricObject().getCenter();
                 normal.normalize();
 
@@ -385,8 +385,8 @@ private:
 
                 float dotProduct = ray.direction * normal;
                 Vector3df reflectedDirection = ray.direction - 2.0f * dotProduct * normal;
-                Ray reflectedRay(shiftedOrigin, -1.0f * reflectedDirection);
-                color = trace(reflectedRay, scene, remainingDepth - 1);
+                Ray reflectedRay(shiftedOrigin, 1.0f * reflectedDirection);
+                color = trace(reflectedRay, scene, remainingDepth - 1) + Color::WHITE * 0.2;
                 printf("%d", remainingDepth); //WHY does it reach the depth limit? Appears to be inside of sphere //Maybe find nearest shape is broken again with closest shape being behind
             }else
             {
@@ -432,7 +432,7 @@ public:
 
         if(isShapeBetweenPoints(hitContext, scene.getLightSource(), scene))
         {
-            intensity = ambientLight;
+            intensity = ambientLight; 
         }
         return hitContext.hit.getMaterial().diffuseColor * intensity;
     }
