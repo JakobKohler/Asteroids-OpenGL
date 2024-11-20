@@ -33,7 +33,7 @@ public:
         );
     }
 
-    friend Color operator+(const Color& color, Color value) {
+    friend Color operator+(const Color& color, const Color value) {
         return Color(
                 static_cast<unsigned char>(std::min(255, color.r + value.r)),
                 static_cast<unsigned char>(std::min(255, color.g + value.r)),
@@ -153,18 +153,18 @@ private:
   Vector3df pixel00_loc = {0,0,0};
 public:
   explicit Camera(const Screen& screen) : screen(screen){
-    float viewport_height = viewport_width * (static_cast<double>(screen.getHeight())/screen.getWidth());
+      const float viewport_height = viewport_width * (static_cast<double>(screen.getHeight())/screen.getWidth());
 
-    Vector3df viewport_u = {viewport_width, 0, 0};
-    Vector3df viewport_v = {0, -viewport_height, 0};
+      const Vector3df viewport_u = {viewport_width, 0, 0};
+      const Vector3df viewport_v = {0, -viewport_height, 0};
 
-    this->pixel_delta_u =  (1.0f / screen.getWidth()) * viewport_u;
-    this->pixel_delta_v =  (1.0f / screen.getHeight()) * viewport_v;
+      this->pixel_delta_u =  (1.0f / screen.getWidth()) * viewport_u;
+      this->pixel_delta_v =  (1.0f / screen.getHeight()) * viewport_v;
 
-    Vector3df cameraToScreenVector = {0,0,focal_length};
-    Vector3df viewport_upper_left = camera_center - cameraToScreenVector - 0.5f * viewport_u -  0.5f * viewport_v;
+      const Vector3df cameraToScreenVector = {0,0,focal_length};
+      const Vector3df viewport_upper_left = camera_center - cameraToScreenVector - 0.5f * viewport_u -  0.5f * viewport_v;
 
-    this->pixel00_loc = viewport_upper_left + 0.5f * (pixel_delta_u + pixel_delta_v);
+      this->pixel00_loc = viewport_upper_left + 0.5f * (pixel_delta_u + pixel_delta_v);
   }
 
   [[nodiscard]] Ray<float, 3> get_ray(const float x, const float y) const
@@ -222,40 +222,40 @@ private:
     const float ROOM_DEPTH_FACTOR = 5;
 
     void generateScene(){
-        Sphere3df leftWallSphere = Sphere3df({-(BIG_RADIUS + ROOM_SIZE),0,0}, BIG_RADIUS);
-        Shape leftWall = Shape({Color::RED, false}, leftWallSphere);
+        auto leftWallSphere = Sphere3df({-(BIG_RADIUS + ROOM_SIZE),0,0}, BIG_RADIUS);
+        auto leftWall = Shape({Color::RED, false}, leftWallSphere);
         objects.push_back(leftWall);
 
-        Sphere3df rightWallSphere = Sphere3df({BIG_RADIUS + ROOM_SIZE,0,0}, BIG_RADIUS);
-        Shape rightWall = Shape({Color::GREEN, false}, rightWallSphere);
+        auto rightWallSphere = Sphere3df({BIG_RADIUS + ROOM_SIZE,0,0}, BIG_RADIUS);
+        auto rightWall = Shape({Color::GREEN, false}, rightWallSphere);
         objects.push_back(rightWall);
 
-        Sphere3df floorSphere = Sphere3df({0,-(BIG_RADIUS + ROOM_SIZE),0}, BIG_RADIUS);
-        Shape floor = Shape({Color::BLUE, false}, floorSphere);
+        auto floorSphere = Sphere3df({0,-(BIG_RADIUS + ROOM_SIZE),0}, BIG_RADIUS);
+        auto floor = Shape({Color::BLACK, false}, floorSphere);
         objects.push_back(floor);
 
-        Sphere3df ceilingSphere = Sphere3df({0,BIG_RADIUS + ROOM_SIZE,0}, BIG_RADIUS);
-        Shape ceiling = Shape({Color::WHITE, false}, ceilingSphere);
+        auto ceilingSphere = Sphere3df({0,BIG_RADIUS + ROOM_SIZE,0}, BIG_RADIUS);
+        auto ceiling = Shape({Color::BLACK, false}, ceilingSphere);
         objects.push_back(ceiling);
 
-        Sphere3df backSphere = Sphere3df({0,0,-BIG_RADIUS - 5 * ROOM_SIZE}, BIG_RADIUS);
-        Shape back = Shape({Color::WHITE, false}, backSphere);
+        auto backSphere = Sphere3df({0,0,-BIG_RADIUS - 5 * ROOM_SIZE}, BIG_RADIUS);
+        auto back = Shape({Color::BLACK, false}, backSphere);
         objects.push_back(back);
 
-        Sphere3df frontSphere = Sphere3df({0,0,BIG_RADIUS}, BIG_RADIUS);
-        Shape front = Shape({Color::RED, false}, frontSphere);
+        auto frontSphere = Sphere3df({0,0,BIG_RADIUS}, BIG_RADIUS);
+        auto front = Shape({Color::BLACK, false}, frontSphere);
         objects.push_back(front);
 
-        Sphere3df sceneSphere1 = Sphere3df({6,-ROOM_SIZE + REG_RADIUS, -25}, REG_RADIUS);
-        Shape obj1 = Shape({Color::PURPLE, false}, sceneSphere1);
+        auto sceneSphere1 = Sphere3df({6,-ROOM_SIZE + REG_RADIUS, -25}, REG_RADIUS);
+        auto obj1 = Shape({Color::PURPLE, false}, sceneSphere1);
         objects.push_back(obj1);
 
-        Sphere3df sceneSphere2 = Sphere3df({-6,-ROOM_SIZE + REG_RADIUS, -35}, REG_RADIUS);
-        Shape obj2 = Shape({Color::PURPLE, true}, sceneSphere2);
+        auto sceneSphere2 = Sphere3df({-6,-ROOM_SIZE + REG_RADIUS, -35}, REG_RADIUS);
+        auto obj2 = Shape({Color::PURPLE, true}, sceneSphere2);
         objects.push_back(obj2);
 
-        Sphere3df sceneSphere3 = Sphere3df({3,-ROOM_SIZE + REG_RADIUS, -40}, REG_RADIUS);
-        Shape obj3 = Shape({Color::PURPLE, false}, sceneSphere3);
+        auto sceneSphere3 = Sphere3df({3,-ROOM_SIZE + REG_RADIUS, -40}, REG_RADIUS);
+        auto obj3 = Shape({Color::PURPLE, false}, sceneSphere3);
         objects.push_back(obj3);
 
         lightSource = {0, ROOM_SIZE - 1, (ROOM_DEPTH_FACTOR -1) * ROOM_SIZE * (-1)};
@@ -271,7 +271,7 @@ public:
         return lightSource;
     }
 
-    std::optional<HitContext> findeNearestShape(Ray3df ray){
+    std::optional<HitContext> findeNearestShape(const Ray3df& ray){
         std::optional<HitContext> hitContext;
         Intersection_Context<float, 3> intersectionContext;
 
@@ -304,14 +304,14 @@ private:
 
         if(hitContext.has_value() && remainingDepth != 0){
             if(hitContext.value().hit.getMaterial().reflective){
-                const float acneCorrection = 1e-4;
-                Intersection_Context intersectionContext = hitContext.value().intersectionContext;
+                constexpr float acneCorrection = 1e-4;
+                auto [u, v, t, normal, intersection] = hitContext.value().intersectionContext;
 
-                const Vector3df shiftedOrigin = intersectionContext.intersection + acneCorrection  * intersectionContext.normal;
-                float dotProduct = ray.direction * intersectionContext.normal;
-                Vector3df reflectedDirection = ray.direction - 2.0f * dotProduct * intersectionContext.normal;
+                const Vector3df shiftedOrigin = intersection + acneCorrection  * normal;
+                const float dotProduct = ray.direction * normal;
+                const Vector3df reflectedDirection = ray.direction - 2.0f * dotProduct * normal;
 
-                Ray reflectedRay(shiftedOrigin, reflectedDirection);
+                const Ray reflectedRay(shiftedOrigin, reflectedDirection);
                 color = trace(reflectedRay, scene, remainingDepth - 1) + Color::WHITE * 0.2;
             } else {
                 color = getColorLambertian(hitContext.value(), scene);
@@ -328,26 +328,26 @@ private:
         const auto shadowRay = Ray(collisionPoint, dir);
         const float ogHitLightDistance = (collisionPoint - point2).length();
 
-        std::optional<HitContext> nearestShape = scene.findeNearestShape(shadowRay);
+        const std::optional<HitContext> nearestShape = scene.findeNearestShape(shadowRay);
 
         if(nearestShape.has_value()){
-            Intersection_Context intersectionContext = nearestShape.value().intersectionContext;
-            return intersectionContext.t < ogHitLightDistance;
+            auto [u, v, t, normal, intersection] = nearestShape.value().intersectionContext;
+            return t < ogHitLightDistance;
         }
         return false;
     }
 public:
     static Color getColorLambertian(const HitContext& hitContext, const Scene& scene){
-        Intersection_Context intersectionContext = hitContext.intersectionContext;
+        auto [u, v, t, normal, intersection] = hitContext.intersectionContext;
         constexpr float ambientLight = 0.3f;
 
-        Vector3df lightSourceNormal = scene.getLightSource() - intersectionContext.intersection;
+        Vector3df lightSourceNormal = scene.getLightSource() - intersection;
         lightSourceNormal.normalize();
 
-        float intensity = ambientLight + std::max(0.0f, intersectionContext.normal * lightSourceNormal);
-        const float acneCorrection = (hitContext.hit.getGeometricObject().getRadius() > 1000) ? 6e-2f : 5e-4f;
+        float intensity = ambientLight + std::max(0.0f, normal * lightSourceNormal);
+        const float acneCorrection = (hitContext.hit.getGeometricObject().getRadius() > 1000) ? 6e-2f : 6e-2f;
 
-        Vector3df shiftedCollision = intersectionContext.intersection + acneCorrection  * intersectionContext.normal;
+        const Vector3df shiftedCollision = intersection + acneCorrection  * normal;
 
         if(isShapeBetweenPoints(shiftedCollision, scene.getLightSource(), scene))
         {
