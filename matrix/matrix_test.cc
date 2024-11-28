@@ -60,16 +60,74 @@ TEST(MATRIX, ProductWithVector3df) {
 
 
 TEST(MATRIX, ProductWithMatrix2df) {
-  SquareMatrix3df matrix1 = { {1.0, 2.0},
+  SquareMatrix2df matrix1 = { {1.0, 2.0},
                               {-1.0, 1.5} };
-  SquareMatrix3df matrix2 = { {2.0, -1.0},
+  SquareMatrix2df matrix2 = { {2.0, -1.0},
                               {1.0, 0.0} };
-  SquareMatrix3df matrix = matrix1 * matrix2; 
+  SquareMatrix2df matrix = matrix1 * matrix2;
   
   EXPECT_NEAR( 3.0, matrix.at(0,0), 0.00001);
   EXPECT_NEAR( 1.0, matrix.at(0,1), 0.00001);
   EXPECT_NEAR( 2.5, matrix.at(1,0), 0.00001);
   EXPECT_NEAR( 2.0, matrix.at(1,1), 0.00001);
+}
+ // MY TESTS
+  TEST(MATRIX, IndexOperators) {
+  SquareMatrix2df matrix1 = { {1.22, 2.0},
+                              {-1.0, 1.5} };
+
+  float upperLeft = matrix1[0][0];
+  float lowerRight = matrix1[1][1];
+
+  EXPECT_NEAR( 1.22, upperLeft, 0.00001);
+  EXPECT_NEAR( 1.5, lowerRight, 0.00001);
+}
+
+  TEST(MATRIX, IndexOperatorsPointer) {
+  SquareMatrix2df matrix1 = { {1.22, 2.0},
+                              {-1.0, 1.5} };
+
+  Vector2df* firstVector = &matrix1[0];
+  auto secondVector = matrix1[1];
+
+  EXPECT_NEAR( 1.22, (*firstVector)[0], 0.00001);
+  EXPECT_NEAR( -1.0, secondVector[0], 0.00001);
+}
+
+  TEST(MATRIX, MatrixWithVector4d) {
+  SquareMatrix4df matrix = { {1.0, 2.0, 3.0, 4.0},
+                            {1.0, 2.0, 3.0, 4.0},
+                            {1.0, 2.0, 3.0, 4.0},
+                              {1.0, 2.0, 3.0, 4.0},
+                            };
+  SquareMatrix4df matrix2 = { {1.0, 2.0, 3.0, 4.0},
+                            {1.0, 2.0, 3.0, 4.0},
+                            {1.0, 2.0, 3.0, 4.0},
+                              {1.0, 2.0, 3.0, 4.0},
+                            };
+  SquareMatrix4df res = matrix * matrix2;
+
+  EXPECT_NEAR( 10.0, res.at(0,0), 0.00001);
+  EXPECT_NEAR( 20.0, res.at(1,0), 0.00001);
+  EXPECT_NEAR( 30.0, res.at(2,0), 0.00001);
+  EXPECT_NEAR( 40.0, res.at(3,0), 0.00001);
+
+}
+
+  TEST(MATRIX, MatrixWithVec4d) {
+  SquareMatrix4df matrix = { {2, 4, 8, 16},
+                            {4, 8, 16, 32},
+                            {8, 16, 32, 64},
+                              {16, 32, 64, 128},
+                            };
+  Vector4df vec = { 2,3,4,5 };
+  Vector4df res = matrix * vec;
+
+  EXPECT_NEAR( 128.0, res[0], 0.00001);
+  EXPECT_NEAR( 256.0, res[1], 0.00001);
+  EXPECT_NEAR( 512.0, res[2], 0.00001);
+  EXPECT_NEAR( 1024.0, res[3], 0.00001);
+
 }
 
 
