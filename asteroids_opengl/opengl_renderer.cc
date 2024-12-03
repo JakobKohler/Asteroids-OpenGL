@@ -475,6 +475,16 @@ static Vector2df tile_positions [] = {
                          {0.0f, 768.0f},
                          {0.0f, -768.0f} };
 
+SquareMatrix4df createTranslationMatrix(float x, float y) {
+    SquareMatrix4df matrix = {
+                    {1, 0, 0, 0},
+                    {0, 1, 0, 0},
+                    {0, 0, 1, 0},
+                    {x, y, 0, 1}
+    };
+    return matrix;
+}
+
 void OpenGLRenderer::render() { //HERE IS THE RENDER
   debug(2, "render() entry...");
 
@@ -517,9 +527,24 @@ void OpenGLRenderer::render() { //HERE IS THE RENDER
 
   debug(2, "render all views");
   for (auto & view : views) {
-    view->render( world_transformation );
+      for (int i = 0; i < 9; ++i) {
+          auto resulting_transformation = world_transformation;
+          auto shifted_matrix = createTranslationMatrix(tile_positions[i][0], tile_positions[i][1]);
+          if(game.ship_exists()) {
+              auto ship = game.get_ship();
+              Vector2df shipPos = ship->get_position();
+              SquareMatrix4df translationShip = SquareMatrix4df{
+                      {1.0f,                               0.0f,                                0.0f, 0.0f},
+                      {0.0f,                               1.0f,                                0.0f, 0.0f},
+                      {0.0f,                               0.0f,                                1.0f, 0.0f},
+                      {this->window_width / 2.0f - shipPos[0], this->window_height / 2.0f - shipPos[1], 0.0f, 1.0f}
+              };
+              resulting_transformation = resulting_transformation * shifted_matrix * translationShip;
+          }
+          view->render( resulting_transformation );
+      }
+
   }
-  
   renderFreeShips(world_transformation);
   renderScore(world_transformation);
 
