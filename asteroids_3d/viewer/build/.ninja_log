@@ -1,0 +1,7 @@
+# ninja log v6
+1	665	1734299711372085707	CMakeFiles/wavefront_test.dir/wavefront.cc.o	13979870a82b2678
+1	670	1734299711368752372	CMakeFiles/viewer.dir/wavefront.cc.o	4c3eb5326c93c7bb
+1	1221	1734299711368752372	CMakeFiles/viewer.dir/viewer.cc.o	1fffa7e2f791c9c5
+1222	1288	1734299712592086405	viewer	cec4fc95258c70ec
+1	1352	1734299711372085707	CMakeFiles/wavefront_test.dir/wavefront_test.cc.o	f920b471ee357413
+1353	1407	1734299712722086488	wavefront_test	7a4bcd8380872cb3
