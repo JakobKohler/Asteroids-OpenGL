@@ -208,17 +208,17 @@ std::vector< std::vector<Vector2df> * > vertice_data = {
   void OpenGLView::render( SquareMatrix<float,4> & matrice) { //Check is 3d flag here
     glBindVertexArray(vao);
     glUseProgram(shaderProgram);
+    int vertex_division_factor = 1;
     if(is_3d){
-        GLint uniformView = glGetUniformLocation (shaderProgram, "model");
-        glUniformMatrix4fv(uniformView, 1 , GL_FALSE , &matrice[0][0] ) ;
-        glDrawArrays(mode, 0, vertices_size / 9);
+        vertex_division_factor = 9;
+        unsigned int modelLoc = glGetUniformLocation (shaderProgram, "model");
+        glUniformMatrix4fv(modelLoc, 1 , GL_FALSE , &matrice[0][0] ) ;
+
     }else{
         unsigned int transformLoc = glGetUniformLocation(shaderProgram, "transform");
         glUniformMatrix4fv(transformLoc, 1, GL_FALSE, &matrice[0][0] );
-        glDrawArrays(mode, 0, vertices_size );
     }
-
-
+    glDrawArrays(mode, 0, vertices_size / vertex_division_factor);
   }
 
 // class TypedBodyView
@@ -320,10 +320,7 @@ void OpenGLRenderer::create(Spaceship * ship, std::vector< std::unique_ptr<Typed
   views.push_back(std::make_unique<TypedBodyView>(ship, vbos3d[2], shaderProgram3d, vertex_data_3d[2].size(), 0.6f, GL_TRIANGLES, true,
                   [ship]() -> bool {return ! ship->is_in_hyperspace();}) // only show ship if outside hyperspace
                  );   
-//  views.push_back(std::make_unique<TypedBodyView>(ship, vbos[1], shaderProgram, vertice_data[1]->size(), 1.0f, GL_LINE_LOOP, false,
-//                  [ship]() -> bool {return ! ship->is_in_hyperspace() && ship->is_accelerating();}) // only show flame if accelerating
-//                 );
-  
+
   debug(4, "create(Spaceship *) exit.");
 }
 
@@ -345,9 +342,6 @@ void OpenGLRenderer::create(Torpedo * torpedo, std::vector< std::unique_ptr<Type
 }
 
 void OpenGLRenderer::create(Asteroid * asteroid, std::vector< std::unique_ptr<TypedBodyView> > & views) {
-  debug(4, "create(Asteroid *) entry...");
-  GLuint rock_vbo_index = 4 +  asteroid->get_rock_type();
-
   float scale = (asteroid->get_size() == 3 ? 1.0 : ( asteroid->get_size() == 2 ? 0.5 : 0.25 ));
   views.push_back(std::make_unique<TypedBodyView>(asteroid, vbos3d[1], shaderProgram3d, vertex_data_3d[1].size(), scale * 4.25, GL_TRIANGLES, true));
   debug(4, "create(Asteroid *) exit.");
@@ -357,7 +351,7 @@ void OpenGLRenderer::create(SpaceshipDebris * debris, std::vector< std::unique_p
   debug(4, "create(SpaceshipDebris *) entry...");
   views.push_back(std::make_unique<TypedBodyView>(debris, vbos[10], shaderProgram, vertice_data[10]->size(), 0.1f, GL_POINTS, false,
             []() -> bool {return true;},
-            [debris](TypedBodyView * view) -> void { view->set_scale( 0.2f * (SpaceshipDebris::TIME_TO_DELETE - debris->get_time_to_delete()));}));   
+            [debris](TypedBodyView * view) -> void { view->set_scale( 0.5f * (SpaceshipDebris::TIME_TO_DELETE - debris->get_time_to_delete()));}));
   debug(4, "create(SpaceshipDebris *) exit.");
 }
 
