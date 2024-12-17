@@ -3,6 +3,8 @@
 #include <span>
 #include <utility>
 #include "viewer/wavefront.h"
+#include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 
 // geometric data as in original game and game coordinates
@@ -149,8 +151,9 @@ std::vector<Vector2df> digit_7 = { {0,-8}, {4,-8}, {4,0} };
 std::vector<Vector2df> digit_8 = { {0,-8}, {4,-8}, {4,0}, {0,0}, {0,-8}, {0, -4}, {4, -4} };
 std::vector<Vector2df> digit_9 = { {4, 0}, {4,-8}, {0,-8}, {0, -4}, {4, -4} };
        
-std::vector< std::vector<Vector2df> * > vertice_data = {
-  &spaceship, &flame,
+std::vector< std::vector<Vector2df> * > vertice_data = { 
+  &spaceship,
+  &flame,
   &torpedo_points, &saucer_points,
   &asteroid_1, &asteroid_2, &asteroid_3, &asteroid_4,
   &spaceship_debris, &spaceship_debris_direction,
@@ -236,6 +239,42 @@ std::vector< std::vector<Vector2df> * > vertice_data = {
  }
 
 // class OpenGLRenderer
+Material default_material = { {1.0f, 1.0f, 1.0f} };
+std::vector<float> create_vertices(WavefrontImporter & wi) {
+  std::vector<float> vertices;
+  
+  for (Face face : wi.get_faces() ) {
+    for (ReferenceGroup group : face.reference_groups ) {
+      for (size_t i = 0; i < 3; i++) {
+        vertices.push_back( group.vertice[i]);
+      }
+      for (size_t i = 0; i < 3; i++) {
+        vertices.push_back( group.normal[i] );
+      }
+      if (face.material == nullptr) face.material = &default_material;
+      for (size_t i = 0; i < 3; i++) {
+        vertices.push_back( face.material->ambient[i]);
+      }
+    } 
+  }
+  return vertices;
+}
+
+void OpenGLRenderer::create3dVbos() {
+  std::fstream in("../viewer/teapot.obj");
+  WavefrontImporter wi( in );
+  wi.parse();
+
+  std::vector<float> vertices = create_vertices(wi);
+  size_t fakeSize = 1;
+  vbos3d = new GLuint[1];
+  glGenBuffers(fakeSize, vbos3d);
+
+  for (size_t i = 0; i < fakeSize; i++) {
+   glBindBuffer(GL_ARRAY_BUFFER, vbos[i]);
+   glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof( float ), vertices.data(), GL_STATIC_DRAW);
+ }
+}
 
 void OpenGLRenderer::createVbos() { //CREATE VBOs (for n objects) and transfer the data
  vbos = new GLuint[vertice_data.size()];
@@ -363,6 +402,107 @@ void OpenGLRenderer::renderScore(SquareMatrix4df & matrice) {
 }
 
 
+void compile_shader(GLint shader, const char * source) {
+  glShaderSource(shader, 1, &source, NULL) ;
+  glCompileShader(shader);
+
+  GLint status;
+  glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
+  if (status == GL_FALSE) {
+    std::cerr << " Shader did not compile." << std::endl;
+    char log[512];
+    glGetShaderInfoLog( shader, 512, NULL, log) ;
+    error(log);
+    throw EXIT_FAILURE;
+  }
+}
+
+void OpenGLRenderer::create_3dshader_programs() {
+
+  const char *vertexShaderSource3d = "#version 330 core\n"
+    "layout (location = 0) in vec3 position;\n" 
+    "layout (location = 1) in vec3 incolor;\n"
+    "layout (location = 2) in vec3 innormal;\n"
+    "out vec3 color;\n"
+    "out vec4 normal;\n"
+    "uniform mat4 model;\n"
+    "void main()\n"
+    "{\n"
+    "gl_Position = model * vec4(position, 1.0);\n"
+    "color = incolor;\n"
+    "normal = normalize( model * vec4(innormal, 1.0));\n"
+    "}\0";
+
+  const char *fragmentShaderSource3d = "#version 330 core\n"
+  "out vec4 outColor;\n"
+  "in vec3 color;\n"
+  "in vec4 normal;\n"
+  "void main () {\n"
+  "  outColor = vec4(color * (0.3 + 0.7 * max(0.0, dot(normal, normalize( vec4(0.0, 1.0, -4.0, 0.0))))) , 1.0);\n"
+  "}\n\0";
+  
+  GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER) ;
+  compile_shader(vertexShader, vertexShaderSource3d);
+
+  GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER) ;
+  compile_shader(fragmentShader, fragmentShaderSource3d);
+
+  shaderProgram3d = glCreateProgram() ;
+  glAttachShader(shaderProgram3d, vertexShader);
+  glAttachShader(shaderProgram3d, fragmentShader);
+  glBindFragDataLocation(shaderProgram3d, 0, "outColor");
+  glLinkProgram(shaderProgram3d);
+
+  GLint status;
+  glGetProgramiv(shaderProgram3d, GL_LINK_STATUS, &status);
+  if (status == GL_FALSE) {
+    GLint length;
+    glGetProgramiv(shaderProgram3d, GL_INFO_LOG_LENGTH, &length);
+    GLchar *log = new char[length + 1];
+    glGetProgramInfoLog(shaderProgram3d, length, &length, &log[0]);
+    error(log);
+    throw EXIT_FAILURE;
+  }
+
+  // // build and compile vertex shader
+  // unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
+  // glShaderSource(vertexShader, 1, &vertexShaderSource3d, NULL);
+  // glCompileShader(vertexShader);
+  // // check for shader compile errors
+  // int success;
+  // char infoLog[512];
+  // glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+  // if (!success)
+  // {
+  //     glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
+  //     error( std::string("vertex shader compilation failed") + infoLog);
+  // }
+  // // build and compiler fragment shader
+  // unsigned int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+  // glShaderSource(fragmentShader, 1, &fragmentShaderSource3d, NULL);
+  // glCompileShader(fragmentShader);
+  // // check for shader compile errors
+  // glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
+  // if (!success)
+  // {
+  //     glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
+  //     error( std::string("fragment shader compilation failed") + infoLog);
+  // }
+  
+
+  // // link both shaders
+  // shaderProgram3d = glCreateProgram();
+  // glAttachShader(shaderProgram3d, vertexShader);
+  // glAttachShader(shaderProgram3d, fragmentShader);
+  // glLinkProgram(shaderProgram3d);
+  // // check for linking errors
+  // glGetProgramiv(shaderProgram3d, GL_LINK_STATUS, &success);
+  // if (!success) {
+  //     glGetProgramInfoLog(shaderProgram3d, 512, NULL, infoLog);
+  //     error( std::string("linking shader programs failed") + infoLog);
+  // }
+}
+
 void OpenGLRenderer::create_shader_programs() {
 
 static const char *vertexShaderSource = "#version 330 core\n"
@@ -378,28 +518,6 @@ static const char *fragmentShaderSource = "#version 330 core\n"
     "{\n"
     "   FragColor = vec4(1.0f, 1.0f, 1.0f, 1.0f);\n"
     "}\n\0";
-
-// const char *vertexShaderSource = "#version 330 core\n"
-//     "layout (location = 0) in vec3 position;\n" 
-//     "layout (location = 1) in vec3 incolor;\n"
-//     "layout (location = 2) in vec3 innormal;\n"
-//     "out vec3 color;\n"
-//     "out vec4 normal;\n"
-//     "uniform mat4 model;\n"
-//     "void main()\n"
-//     "{\n"
-//     "gl_Position = model * vec4(position, 1.0);\n"
-//     "color = incolor;\n"
-//     "normal = normalize( model * vec4(innormal, 1.0));\n"
-//     "}\0";
-
-//   const char *fragmentShaderSource = "#version 330 core\n"
-//   "out vec4 outColor;\n"
-//   "in vec3 color;\n"
-//   "in vec4 normal;\n"
-//   "void main () {\n"
-//   "  outColor = vec4(color * (0.3 + 0.7 * max(0.0, dot(normal, normalize( vec4(0.0, 1.0, -4.0, 0.0))))) , 1.0);\n"
-//   "}\n\0";
 
     // build and compile vertex shader
     unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
@@ -470,7 +588,10 @@ bool OpenGLRenderer::init() {
       SDL_GL_SetSwapInterval(1);
 
       create_shader_programs();
+      create_3dshader_programs();
+      
       createVbos();
+      //create3dVbos();
       createSpaceShipView();
       createDigitViews();
       return true;
@@ -510,10 +631,11 @@ SquareMatrix4df createTranslationMatrix(float x, float y) {
     return matrix;
 }
 
-void OpenGLRenderer::render() { //HERE IS THE RENDER
+void OpenGLRenderer::render() { //HERE IS THE RENDER, FIRST TRY TO BAKE A RENDER HARD IN HERE //WHERE WILL THE THING BE POSITIONED??
+                                //Somehow have to integrate with the existing stuff. How? Different memory layout// Somehow separate 2D and 3D and first render one then switch shader and shit, then render second. Start with hard code 1 3d object tho
   debug(2, "render() entry...");
 
-  // transformation to canonical view and from left handed to right handed coordinates
+  // // transformation to canonical view and from left handed to right handed coordinates
   SquareMatrix4df world_transformation =
                          SquareMatrix4df{
                            { 2.0f / 1024.0f,           0.0f,            0.0f,  0.0f},
@@ -552,26 +674,96 @@ void OpenGLRenderer::render() { //HERE IS THE RENDER
 
   debug(2, "render all views");
   for (auto & view : views) {
-      for (int i = 0; i < 9; ++i) {
-          auto resulting_transformation = world_transformation;
-          auto shifted_matrix = createTranslationMatrix(tile_positions[i][0], tile_positions[i][1]);
-          if(game.ship_exists()) {
-              auto ship = game.get_ship();
-              Vector2df shipPos = ship->get_position();
-              SquareMatrix4df translationShip = SquareMatrix4df{
-                      {1.0f,                               0.0f,                                0.0f, 0.0f},
-                      {0.0f,                               1.0f,                                0.0f, 0.0f},
-                      {0.0f,                               0.0f,                                1.0f, 0.0f},
-                      {this->window_width / 2.0f - shipPos[0], this->window_height / 2.0f - shipPos[1], 0.0f, 1.0f}
-              };
-              resulting_transformation = resulting_transformation * shifted_matrix * translationShip;
-          }
-          view->render( resulting_transformation );
-      }
+      // for (int i = 0; i < 9; ++i) {
+      //     auto resulting_transformation = world_transformation;
+      //     auto shifted_matrix = createTranslationMatrix(tile_positions[i][0], tile_positions[i][1]);
+      //     if(game.ship_exists()) {
+      //         auto ship = game.get_ship();
+      //         Vector2df shipPos = ship->get_position();
+      //         SquareMatrix4df translationShip = SquareMatrix4df{
+      //                 {1.0f,                               0.0f,                                0.0f, 0.0f},
+      //                 {0.0f,                               1.0f,                                0.0f, 0.0f},
+      //                 {0.0f,                               0.0f,                                1.0f, 0.0f},
+      //                 {this->window_width / 2.0f - shipPos[0], this->window_height / 2.0f - shipPos[1], 0.0f, 1.0f}
+      //         };
+      //         resulting_transformation = resulting_transformation * shifted_matrix * translationShip;
+      //     }
+      //     view->render( resulting_transformation );
+      // }
+
+      view->render( world_transformation );
 
   }
   renderFreeShips(world_transformation);
   renderScore(world_transformation);
+
+
+  //TEST
+
+  std::fstream in("../viewer/teapot.obj");
+  WavefrontImporter wi( in );
+  wi.parse();
+  std::vector<float> vertices = create_vertices(wi);
+
+
+  GLuint vao3d;  
+  glGenVertexArrays(1, &vao3d); //  ate a vertex array object (VAO)
+  glBindVertexArray(vao3d); // make vao active
+
+  GLuint vbo3d;
+  glGenBuffers(1, &vbo3d); // create a new vertex buffer object (VBO)
+  glBindBuffer(GL_ARRAY_BUFFER, vbo3d); // make it active  
+  
+  // transfer data from RAM to GPU buffer
+  glBufferData(GL_ARRAY_BUFFER,
+               vertices.size() * sizeof(float), 
+               vertices.data(),
+               GL_STATIC_DRAW);
+
+  /* the following layout is assumed for each vertex of a face (triangle)
+    x1 y1 z1 nx1 ny1 nz1 r1 g1 b1 
+  */
+
+  // active vbo will be associated to active vao by the following calls
+  glVertexAttribPointer(0,
+                        3,        // number of vertices (components)
+                        GL_FLOAT, //
+                        GL_FALSE, // no normalization
+                        9 * sizeof(float), // no of bytes between each vertice (component)
+                        (void*)0);
+  glEnableVertexAttribArray(0);
+
+  glVertexAttribPointer(1,
+                        3,        // no vertices (components)
+                        GL_FLOAT, //
+                        GL_FALSE, // no normalization
+                        9 * sizeof(float), // no of bytes between each color (component)
+                        (void*)(6 * sizeof(float)) ); // offset to color data in the vbo
+  glEnableVertexAttribArray(1);
+
+  glVertexAttribPointer(2,
+                        3,        // no vertices (components)
+                        GL_FLOAT, //
+                        GL_FALSE, // no normalization
+                        9 * sizeof(float), // no of bytes between each color (component)
+                        (void*)(3 * sizeof(float)) ); // offset to color data in the vbo
+  glEnableVertexAttribArray(2);
+
+  
+  glUseProgram(shaderProgram3d);
+  float scale = 0.1f;
+    glm::mat4 model = glm::mat4(1.0);
+    model = glm::scale( model, glm::vec3(scale, scale, scale) );
+
+    GLint uniformView = glGetUniformLocation (shaderProgram3d, "model");
+    glUniformMatrix4fv(uniformView, 1 , GL_FALSE , glm::value_ptr(model) ) ;  
+    glDrawArrays(GL_TRIANGLES, 0, vertices.size() / 9);
+
+    SDL_GL_SwapWindow(window);
+
+    //glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+  
+  //TEST
 
   SDL_GL_SwapWindow(window);
   debug(2, "render() exit.");

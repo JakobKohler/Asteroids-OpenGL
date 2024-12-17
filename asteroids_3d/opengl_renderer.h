@@ -64,11 +64,14 @@ class OpenGLRenderer : public Renderer {
   SDL_Window * window = nullptr;
   SDL_GLContext context;
   unsigned int shaderProgram;
+  GLuint shaderProgram3d;
   std::vector< std::unique_ptr<TypedBodyView > > views;
   GLuint * vbos;
+  GLuint * vbos3d;
   std::unique_ptr<OpenGLView> spaceship_view;
   std::array< std::unique_ptr<OpenGLView>, 10> digit_views;
   void createVbos();
+  void create3dVbos();
   void createSpaceShipView();
   void createDigitViews();
   void create(Spaceship * ship, std::vector< std::unique_ptr<TypedBodyView> > & views); 
@@ -80,6 +83,7 @@ class OpenGLRenderer : public Renderer {
   void renderFreeShips(SquareMatrix4df & matrice);
   void renderScore(SquareMatrix4df & matrice);
   void create_shader_programs();
+  void create_3dshader_programs();
 public:
   OpenGLRenderer(Game & game, std::string title, int window_width = 1024, int window_height = 768)
     : Renderer(game), title(title), window_width(window_width), window_height(window_height) { }

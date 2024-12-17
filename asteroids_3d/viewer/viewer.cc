@@ -141,7 +141,7 @@ void create_shaders() {
   shaderProgram = glCreateProgram() ;
   glAttachShader(shaderProgram, vertexShader);
   glAttachShader(shaderProgram, fragmentShader);
-  glBindFragDataLocation(shaderProgram, 0, "outColor");
+  glBindFragDataLocation(shaderProgram, 0, "outColor"); //Important?
   glLinkProgram(shaderProgram);
   check_link_status(shaderProgram);
 }
@@ -220,7 +220,7 @@ void view(std::vector<float> & vertices, float scale) {
     glm::mat4 model = glm::mat4(1.0);
     model = glm::scale( model, glm::vec3(scale, scale, scale) );
     model = glm::rotate (model, angle ,
-                         glm::vec3 (0.0f, 1.0f, 1.0f) ) ; // rotate along x and z axis
+                         glm::vec3 (0.0f, 1.0f, 1.0f) ) ;// rotate along x and z axis
 
 
     glClearColor ( 0.5, 0.5, 0.5, 1.0 );

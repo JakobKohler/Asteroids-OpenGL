@@ -2,7 +2,7 @@
 # www.blender.org
 mtllib basic.mtl
 o teapot_large.001
-usemtl red
+usemtl blue
 v 1.368074 2.435437 -0.227403
 v 1.381968 2.400000 -0.229712
 v 1.400000 2.400000 0.000000
