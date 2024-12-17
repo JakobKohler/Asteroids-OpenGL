@@ -20,14 +20,17 @@ class OpenGLView {
 protected:
   unsigned int shaderProgram;
   size_t vertices_size;
+  bool is_3d;
   GLuint mode;
-  GLuint vao;
+  GLuint vao{};
+  GLuint vao3d{};
 public:
-  OpenGLView(GLuint vbo, unsigned int shaderProgram, size_t vertices_size, GLuint mode = GL_LINE_LOOP);  
+  OpenGLView(GLuint vbo, unsigned int shaderProgram, size_t vertices_size, GLuint mode = GL_LINE_LOOP, bool is_3d = false);
 
   ~OpenGLView();
     
-  void render( SquareMatrix<float,4> & matrice);  
+  void render( SquareMatrix<float,4> & matrice);
+  void render3d( SquareMatrix<float,4> & matrice);
 };
 
 
@@ -38,7 +41,7 @@ class TypedBodyView : public OpenGLView {
   std::function<void(TypedBodyView *)> modify; // a callback which my change this TypedBodyView, for instance, for animations
   SquareMatrix4df create_object_transformation(Vector2df direction, float angle, float scale);
 public:
-  TypedBodyView(TypedBody * typed_body, GLuint vbo, unsigned int shaderProgram, size_t vertices_size, float scale = 1.0f, GLuint mode = GL_LINE_LOOP,
+  TypedBodyView(TypedBody * typed_body, GLuint vbo, unsigned int shaderProgram, size_t vertices_size, float scale = 1.0f, GLuint mode = GL_LINE_LOOP, bool is_3d = false,
                std::function<bool()> draw = []() -> bool {return true;},
                std::function<void(TypedBodyView *)> modify = [](TypedBodyView *) -> void {});
 
@@ -48,6 +51,7 @@ public:
   void render( SquareMatrix<float,4> & world) ;
   
  TypedBody * get_typed_body();
+ bool get_is_3d();
 
  void set_scale(float scale);
  
@@ -68,6 +72,7 @@ class OpenGLRenderer : public Renderer {
   std::vector< std::unique_ptr<TypedBodyView > > views;
   GLuint * vbos;
   GLuint * vbos3d;
+  std::vector< std::vector<float>> vertex_data_3d;
   std::unique_ptr<OpenGLView> spaceship_view;
   std::array< std::unique_ptr<OpenGLView>, 10> digit_views;
   void createVbos();
@@ -84,6 +89,8 @@ class OpenGLRenderer : public Renderer {
   void renderScore(SquareMatrix4df & matrice);
   void create_shader_programs();
   void create_3dshader_programs();
+  void load_wavefront_data();
+  static std::vector<float> load_wavefront_file(const std::string& file_path);
 public:
   OpenGLRenderer(Game & game, std::string title, int window_width = 1024, int window_height = 768)
     : Renderer(game), title(title), window_width(window_width), window_height(window_height) { }
