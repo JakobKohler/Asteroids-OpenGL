@@ -205,7 +205,7 @@ std::vector< std::vector<Vector2df> * > vertice_data = {
     glDeleteVertexArrays(1, &vao3d);
   }
 
-  void OpenGLView::render( SquareMatrix<float,4> & matrice) { //Check is 3d flag here
+  void OpenGLView::render( SquareMatrix<float,4> & matrice) {
     glBindVertexArray(vao);
     glUseProgram(shaderProgram);
     int vertex_division_factor = 1;
@@ -317,8 +317,11 @@ void OpenGLRenderer::createVbos() {
 void OpenGLRenderer::create(Spaceship * ship, std::vector< std::unique_ptr<TypedBodyView> > & views) {
   debug(4, "create(Spaceship *) entry...");
 
-  views.push_back(std::make_unique<TypedBodyView>(ship, vbos3d[2], shaderProgram3d, vertex_data_3d[2].size(), 0.6f, GL_TRIANGLES, true,
+  views.push_back(std::make_unique<TypedBodyView>(ship, vbos3d[2], shaderProgram3d, vertex_data_3d[2].size(), 1.0f, GL_TRIANGLES, true,
                   [ship]() -> bool {return ! ship->is_in_hyperspace();}) // only show ship if outside hyperspace
+                 );
+  views.push_back(std::make_unique<TypedBodyView>(ship, vbos3d[3], shaderProgram3d, vertex_data_3d[3].size(), 1.0f, GL_TRIANGLES, true,
+                  [ship]() -> bool {return ! ship->is_in_hyperspace() && ship->is_accelerating();}) // only show flame if accelerating
                  );   
 
   debug(4, "create(Spaceship *) exit.");
@@ -326,9 +329,9 @@ void OpenGLRenderer::create(Spaceship * ship, std::vector< std::unique_ptr<Typed
 
 void OpenGLRenderer::create(Saucer * saucer, std::vector< std::unique_ptr<TypedBodyView> > & views) {
   debug(4, "create(Saucer *) entry...");
-  float scale = 0.5;
+  float scale = 3.0f;
   if ( saucer->get_size() == 0 ) {
-    scale = 0.25;
+    scale = 1.5;
   }
   views.push_back(std::make_unique<TypedBodyView>(saucer, vbos3d[0], shaderProgram3d, vertex_data_3d[0].size(), scale, GL_TRIANGLES, true));
   debug(4, "create(Saucer *) exit.");
@@ -343,7 +346,7 @@ void OpenGLRenderer::create(Torpedo * torpedo, std::vector< std::unique_ptr<Type
 
 void OpenGLRenderer::create(Asteroid * asteroid, std::vector< std::unique_ptr<TypedBodyView> > & views) {
   float scale = (asteroid->get_size() == 3 ? 1.0 : ( asteroid->get_size() == 2 ? 0.5 : 0.25 ));
-  views.push_back(std::make_unique<TypedBodyView>(asteroid, vbos3d[1], shaderProgram3d, vertex_data_3d[1].size(), scale * 4.25, GL_TRIANGLES, true));
+  views.push_back(std::make_unique<TypedBodyView>(asteroid, vbos3d[1], shaderProgram3d, vertex_data_3d[1].size(), scale, GL_TRIANGLES, true));
   debug(4, "create(Asteroid *) exit.");
 }
 
@@ -570,11 +573,6 @@ bool OpenGLRenderer::init() {
 
       SDL_GL_SetSwapInterval(1);
 
-      glEnable(GL_DEPTH_TEST);
-      glEnable(GL_CULL_FACE);
-      glCullFace(GL_BACK);
-      glFrontFace(GL_CW);
-
       load_wavefront_data();
 
       create_shader_programs();
@@ -664,76 +662,28 @@ void OpenGLRenderer::render() { //HERE IS THE RENDER, FIRST TRY TO BAKE A RENDER
 
   debug(2, "render all views");
   for (auto & view : views) {
-      // for (int i = 0; i < 9; ++i) {
-      //     auto resulting_transformation = world_transformation;
-      //     auto shifted_matrix = createTranslationMatrix(tile_positions[i][0], tile_positions[i][1]);
-      //     if(game.ship_exists()) {
-      //         auto ship = game.get_ship();
-      //         Vector2df shipPos = ship->get_position();
-      //         SquareMatrix4df translationShip = SquareMatrix4df{
-      //                 {1.0f,                               0.0f,                                0.0f, 0.0f},
-      //                 {0.0f,                               1.0f,                                0.0f, 0.0f},
-      //                 {0.0f,                               0.0f,                                1.0f, 0.0f},
-      //                 {this->window_width / 2.0f - shipPos[0], this->window_height / 2.0f - shipPos[1], 0.0f, 1.0f}
-      //         };
-      //         resulting_transformation = resulting_transformation * shifted_matrix * translationShip;
-      //     }
-      //     view->render( resulting_transformation );
-      // }
+      for (int i = 0; i < 9; ++i) {
+          auto resulting_transformation = world_transformation;
+          auto shifted_matrix = createTranslationMatrix(tile_positions[i][0], tile_positions[i][1]);
+          if(game.ship_exists()) {
+              auto ship = game.get_ship();
+              Vector2df shipPos = ship->get_position();
+              SquareMatrix4df translationShip = SquareMatrix4df{
+                      {1.0f,                               0.0f,                                0.0f, 0.0f},
+                      {0.0f,                               1.0f,                                0.0f, 0.0f},
+                      {0.0f,                               0.0f,                                1.0f, 0.0f},
+                      {this->window_width / 2.0f - shipPos[0], this->window_height / 2.0f - shipPos[1], 0.0f, 1.0f}
+              };
+              resulting_transformation = resulting_transformation * shifted_matrix * translationShip;
+          }
+          view->render( resulting_transformation );
+      }
       //
-      view->render( world_transformation );
+      //view->render( world_transformation );
 
   }
   renderFreeShips(world_transformation);
   renderScore(world_transformation);
-
-  //TEST
-
-//    std::vector<float> vertices = vertex_data_3d[0];
-//
-//
-//
-//    glBindBuffer(GL_ARRAY_BUFFER, vbos3d[0]); // make it active
-//    GLuint vao3d;
-//    glGenVertexArrays(1, &vao3d); //  ate a vertex array object (VAO)
-//    glBindVertexArray(vao3d); // make vao active
-//    glVertexAttribPointer(0,
-//                          3,        // number of vertices (components)
-//                          GL_FLOAT, //
-//                          GL_FALSE, // no normalization
-//                          9 * sizeof(float), // no of bytes between each vertice (component)
-//                          (void*)0);
-//    glEnableVertexAttribArray(0);
-//
-//    glVertexAttribPointer(1,
-//                          3,        // no vertices (components)
-//                          GL_FLOAT, //
-//                          GL_FALSE, // no normalization
-//                          9 * sizeof(float), // no of bytes between each color (component)
-//                          (void*)(6 * sizeof(float)) ); // offset to color data in the vbo
-//    glEnableVertexAttribArray(1);
-//
-//    glVertexAttribPointer(2,
-//                          3,        // no vertices (components)
-//                          GL_FLOAT, //
-//                          GL_FALSE, // no normalization
-//                          9 * sizeof(float), // no of bytes between each color (component)
-//                          (void*)(3 * sizeof(float)) ); // offset to color data in the vbo
-//    glEnableVertexAttribArray(2);
-//
-//
-//    glUseProgram(shaderProgram3d);
-//    float scale = 2.0f;
-//    auto model = glm::mat4(1.0);
-//    model = glm::scale( model, glm::vec3(scale, scale, scale) );
-//
-//    GLint uniformView = glGetUniformLocation (shaderProgram3d, "model");
-//    glUniformMatrix4fv(uniformView, 1 , GL_FALSE , glm::value_ptr(model) ) ;
-//    glDrawArrays(GL_TRIANGLES, 0, vertices.size() / 9);
-//
-//    SDL_GL_SwapWindow(window);
-
-    //TEST
 
   SDL_GL_SwapWindow(window);
   debug(2, "render() exit.");
@@ -752,9 +702,10 @@ void OpenGLRenderer::load_wavefront_data() {
     vertex_data_3d.clear();
 
     std::vector<std::string> wavefront_files = {
-            "../viewer/saucer.obj",
-            "../viewer/asteroid.obj",
-            "../viewer/rocket.obj"
+            "saucer.obj",
+            "asteroid.obj",
+            "spaceship.obj",
+            "spaceship_boost.obj"
     };
 
     for (const auto& file : wavefront_files) {
