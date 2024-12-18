@@ -619,8 +619,7 @@ SquareMatrix4df createTranslationMatrix(float x, float y) {
     return matrix;
 }
 
-void OpenGLRenderer::render() { //HERE IS THE RENDER, FIRST TRY TO BAKE A RENDER HARD IN HERE //WHERE WILL THE THING BE POSITIONED??
-                                //Somehow have to integrate with the existing stuff. How? Different memory layout// Somehow separate 2D and 3D and first render one then switch shader and shit, then render second. Start with hard code 1 3d object tho
+void OpenGLRenderer::render() {
   debug(2, "render() entry...");
 
   // // transformation to canonical view and from left handed to right handed coordinates
@@ -678,9 +677,6 @@ void OpenGLRenderer::render() { //HERE IS THE RENDER, FIRST TRY TO BAKE A RENDER
           }
           view->render( resulting_transformation );
       }
-      //
-      //view->render( world_transformation );
-
   }
   renderFreeShips(world_transformation);
   renderScore(world_transformation);
